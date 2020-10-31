@@ -1,5 +1,8 @@
 import os
 
+# Adding Weights & Biases Integration
+import wandb
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -41,6 +44,11 @@ class CapsNet(pl.LightningModule):
             nn.Dropout(0.1),
             nn.Linear(hidden_size, self.num_classes)
         )
+		
+		# A logging frequency and W&B setup
+		self.log_freq = 1
+		wandb.init(name="ML@B Semantic Convs Project")
+		wandb.watch(self.model, log="all")
 
     def forward(self, x):
         x = self.model(x)
@@ -50,6 +58,8 @@ class CapsNet(pl.LightningModule):
         x, y = batch
         logits = self(x)
         loss = F.nll_loss(logits, y)
+		if batch_idx % self.log_freq == 0:
+			wandb.log({"Train Loss": loss})
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -62,6 +72,9 @@ class CapsNet(pl.LightningModule):
         # Calling self.log will surface up scalars for you in TensorBoard
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_acc', acc, prog_bar=True)
+		if batch_idx % self.log_freq == 0:
+			wandb.log({"Validation Loss": loss})
+			wandb.log({"Validation Accuracy": acc})
         return loss
 
     def test_step(self, batch, batch_idx):
