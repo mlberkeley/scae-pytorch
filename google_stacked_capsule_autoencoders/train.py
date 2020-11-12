@@ -26,6 +26,7 @@ import sys
 import traceback  # pylint:disable=g-import-not-at-top
 from absl import flags
 from absl import logging
+import wandb
 
 import numpy as np
 import tensorflow.compat.v1 as tf
@@ -87,7 +88,8 @@ def main(_=None):
   if os.path.exists(logdir) and FLAGS.overwrite:
     logging.info('"overwrite" is set to True. Deleting logdir at "%s".', logdir)
     shutil.rmtree(logdir)
-
+  
+  wandb.init(config=FLAGS, sync_tensorboard=True)
   # Build the graph
   with tf.Graph().as_default():
 
@@ -198,13 +200,16 @@ def main(_=None):
           logging.info('train:')
           logging.info('#%s: %s', train_itr,
                        report_template.format(**report_vals))
-
+		  
+          wandb.log("train" + str(train_itr): str(report_template.format(**report_vals)))
+		  
           logging.info('valid:')
           valid_logs = dict(report_vals)
           valid_logs.update(valid_report_vals)
           logging.info('#%s: %s', train_itr,
                        report_template.format(**valid_logs))
-
+		  
+		  wandb.log("valid" + str(train_itr): str(report_template.format(**valid_logs)))
           vals_to_check = list(report_vals.values())
           if (np.isnan(vals_to_check).any()
               or np.isnan(vals_to_check).any()):
