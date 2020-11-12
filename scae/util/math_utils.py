@@ -50,3 +50,46 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
         poses = torch.stack([poses, bottom_pad], dim=-2)
     return poses
+
+
+class MixtureDistribution(torch.distributions.Distribution):
+    def __init__(self, mixing_logits, means, var=1, distribution=torch.distributions.Normal):
+        """
+
+        :param mixing_logits: size (batch_size, num_distributions, H, W)
+        :param means:         size (batch_size, num_distributions, C, H, W)
+        :param var:
+        """
+        super().__init__()
+        self._mixing_logits = mixing_logits
+        self._means = means
+        self._var = var
+        self._distributions = distribution(loc=means, scale=var)
+
+    def log_prob(self, value):
+        """
+
+        :param value: shape (batch_size, C, H, W)
+        :return:      shape (batch_size)
+        """
+        batch_size = value.shape[0]
+        num_distributions = value.shape[0]
+
+        # y      shape (batch_size, 1,                 C, H, W)
+        y = value.unsqueeze(1)
+        # logits shape (batch_size, num_distributions, C, H, W)
+        logits = self._distributions.log_prob(y)
+
+        # multiply probabilities over channels
+        logits = logits.sum(dim=2)
+        # multiply by mixing probs
+        logits += self._mixing_logits
+        # sum probs over distributions
+        logits = logits.exp().sum(dim=1).log()
+        # multiply probabilities over pixels
+        logits = logits.view(batch_size, -1).sum(dim=-1)
+        return logits
+
+
+
+
