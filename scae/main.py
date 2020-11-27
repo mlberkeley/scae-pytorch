@@ -2,72 +2,79 @@ import argparse
 import os
 import wandb
 import torch
+from pytorch_lightning.loggers import WandbLogger
+from torch.utils.data import DataLoader
+from torchvision import transforms
+import pytorch_lightning as pl
+from easydict import EasyDict
 
-from scae.modules.stacked_capsule_ae import CapsNet
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser()
     # Trainer params
-    parser.add_argument('-b', '--batch_size', type=int, default=128)
-    parser.add_argument('-e', '--num_epochs', type=int, default=150)
-    # Dataset
-    parser.add_argument('--train_data', type=str, default="MNIST")
-    parser.add_argument('--use_augmentation', action="store_true", default=False,
-                        help="If this is true, using data augmentation (CIFAR10)")
-    # Estimator hyperparams
-    est_args = parser.add_argument_group('Estimator hyperparams')
-    est_args.add_argument('--miest_width', type=int, default=1024)
-    est_args.add_argument('--miest_lr', type=float, default=1e-4)
+    parser.add_argument('-bs', '--batch_size', type=int, default=128)
+    parser.add_argument('-es', '--num_epochs', type=int, default=150)
+    parser.add_argument('--model', type=str, default='PCAE', help='PCAE')
 
-    enc_args = parser.add_argument_group('Encoder hyperparams')
-    enc_args.add_argument('--encoder_lr', type=float, default=1e-1)
-    enc_args.add_argument('--encoder_weight_decay', type=float, default=1e-4)
+    # Dataset Params
+    parser.add_argument('--data', type=str, default="MNIST")
+    # parser.add_argument('--use_aug', action="store_true", default=False, help="If this is true, using data augmentation")
 
-    # Logging hyperparameters
-    logger_args = parser.add_argument_group('Logger Config')
-    logger_args.add_argument('--name', type=str, default="")
-    logger_args.add_argument('--project', type=str, default='thresholding')
-    logger_args.add_argument('--log_interval', type=int, default=-1, help="Steps per logging")
-    logger_args.add_argument('--save_interval', type=int, default=1, help="Epochs per saving")
+    # Sub AutoEncoder Params
+    pcae_args = parser.add_argument_group('PCAE Params')
+    pcae_args.add_argument('--pcae_n_caps', type=int, default=16)
+    pcae_args.add_argument('--pcae_caps_dim', type=int, default=6)
+    pcae_args.add_argument('--pcae_feat_dim', type=int, default=16)
+    pcae_args.add_argument('--pcae_lr', type=int, default=5e-3)
 
-    hparams = parser.parse_args()
+    ocae_args = parser.add_argument_group('OCAE Params')
+    ocae_args.add_argument('--ocae_lr', type=float, default=1e-1)
+    ocae_args.add_argument('--ocae_weight_decay', type=float, default=1e-4)
 
-    if hparams.train_data == "Tiny-ImageNet-C":
-        hparams.num_classes = 200
-    elif hparams.train_data == "cifar10":
-        hparams.num_classes = 10
-    elif hparams.train_data == 'cifar100':
-        hparams.num_classes = 100
+    # Logging Params
+    logger_args = parser.add_argument_group('Logger Params')
+    logger_args.add_argument('--name', type=str, default=None)
+    logger_args.add_argument('--project', type=str, default='StackedCapsuleAutoEncoders')
+
+    return EasyDict(vars(parser.parse_args()))
+
+
+def main():
+    args = parse_args()
+
+    # Init Dataset
+    if args.data == 'MNIST':
+        args.num_classes = 10
+        args.im_channels = 1
+
+        from torchvision.datasets import MNIST
+        t = transforms.Compose([
+            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.ToTensor()
+        ])
+        train_dataset = MNIST('data', train=True, transform=t, download=True)
+        train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+        val_dataset = MNIST('data', train=False, transform=t, download=True)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     else:
-        raise NotImplementedError
+        raise NotImplementedError(args.data)
 
-    if hparams.pretrain_encoder < 0:
-        hparams.pretrain_encoder = hparams.num_epochs
+    # Init Model
+    if args.model == 'PCAE':
+        from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
+        from scae.models.pcae import PCAE
 
-    hparams.host_name = os.uname()[1]
+        encoder = CapsuleImageEncoder(args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
+        decoder = TemplateImageDecoder(args.pcae_n_caps)
+        model = PCAE(encoder, decoder, args)
+    else:
+        raise NotImplementedError()
 
-    wandb_kwargs = {}
-    peel_args = ['name', 'project']
+    # Execute Experiment
+    logger = WandbLogger(name=args.name, project=args.project, config=args)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger)
 
-    for arg in peel_args:
-        val = getattr(hparams, arg, None)
-        wandb_kwargs[arg] = val
-
-    wandb_kwargs['name'] = wandb_kwargs['name'].format(hparams)
-    wandb.init(config=hparams, **wandb_kwargs)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    print(hparams)
-    print(device)
-
-    dataset =
-
-    encoder = model.SingleBottleneck(hparams)
-    discriminator = D.CMIEstimator(hparams)
-
-    model = CapsNet(hparams, device)
-
-    model.train(dataset)
+    trainer.fit(model, train_dataloader)
 
 
 if __name__ == "__main__":

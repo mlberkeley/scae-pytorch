@@ -73,7 +73,6 @@ class MixtureDistribution(torch.distributions.Distribution):
         :return:      shape (batch_size)
         """
         batch_size = value.shape[0]
-        num_distributions = value.shape[0]
 
         # y      shape (batch_size, 1,                 C, H, W)
         y = value.unsqueeze(1)
@@ -90,6 +89,9 @@ class MixtureDistribution(torch.distributions.Distribution):
         logits = logits.view(batch_size, -1).sum(dim=-1)
         return logits
 
+    def max(self):
+
+        return ...
 
 
 
