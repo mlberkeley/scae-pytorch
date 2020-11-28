@@ -56,7 +56,7 @@ class MixtureDistribution(torch.distributions.Distribution):
     def __init__(self, mixing_logits, means, var=1, distribution=torch.distributions.Normal):
         """
 
-        :param mixing_logits: size (batch_size, num_distributions, H, W)
+        :param mixing_logits: size (batch_size, num_distributions, C, H, W)
         :param means:         size (batch_size, num_distributions, C, H, W)
         :param var:
         """
@@ -66,6 +66,14 @@ class MixtureDistribution(torch.distributions.Distribution):
         self._var = var
         self._distributions = distribution(loc=means, scale=var)
 
+    @property
+    def mixing_log_prob(self):
+        return self._mixing_logits - self._mixing_logits.exp().sum(dim=1, keepdims=True).log()
+
+    @property
+    def mixing_prob(self):
+        return torch.softmax(self._mixing_logits, dim=1)
+
     def log_prob(self, value):
         """
 
@@ -73,25 +81,24 @@ class MixtureDistribution(torch.distributions.Distribution):
         :return:      shape (batch_size)
         """
         batch_size = value.shape[0]
-
         # y      shape (batch_size, 1,                 C, H, W)
         y = value.unsqueeze(1)
         # logits shape (batch_size, num_distributions, C, H, W)
         logits = self._distributions.log_prob(y)
-
-        # multiply probabilities over channels
-        logits = logits.sum(dim=2)
-        # multiply by mixing probs
-        logits += self._mixing_logits
+        # multiply probabilities over channels, multiply by mixing probs
+        logits = logits.sum(dim=2) + self.mixing_log_prob.sum(dim=2)
         # sum probs over distributions
         logits = logits.exp().sum(dim=1).log()
         # multiply probabilities over pixels
         logits = logits.view(batch_size, -1).sum(dim=-1)
         return logits
 
-    def max(self):
-
-        return ...
+    def mean(self, idx=None):
+        # returns weighted average over all distributions
+        if idx is not None:
+            return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0).detach()
+        else:
+            return (self._means * self.mixing_prob).sum(dim=1).detach()
 
 
 

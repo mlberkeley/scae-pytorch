@@ -1,6 +1,9 @@
+import random
+
 import numpy as np
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 from easydict import EasyDict
 
 import scae.util.math as math_utils
@@ -57,6 +60,7 @@ class CapsuleImageEncoder(nn.Module):
         for i in range(4):
             layers.append(nn.Conv2d(channels[i], channels[i+1], kernel_size=3, stride=strides[i]))
             layers.append(nn.ReLU())
+            layers.append(nn.BatchNorm2d(channels[i+1]))
         self._encoder = nn.Sequential(*layers)
 
         # Conv attention
@@ -128,8 +132,8 @@ class TemplateImageDecoder(nn.Module):
 
         assert len(self._template_size) == 2, 'Template size must be of dim 2'
         self.init_templates()
-        self.bg_value = torch.nn.Parameter(torch.zeros(1), requires_grad=True)
-        self.bg_logit = torch.nn.Parameter(torch.zeros(1), requires_grad=True)
+        self.bg_value = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
+        self.bg_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
 
     def init_templates(self):
         template_shape = [self._n_caps, self._n_channels] + list(self._template_size)  # torch generally uses (N, C, H, W)
@@ -138,6 +142,11 @@ class TemplateImageDecoder(nn.Module):
         # make each templates orthogonal to each other at init
         n = max(self._n_caps, n_elems)
         q, _ = torch.qr(torch.rand(n, n))
+
+        col_idxs = list(range(q.shape[1]))
+        random.shuffle(col_idxs)
+        q = q[:, torch.tensor(col_idxs)]
+
         ts = q[:self._n_caps, :n_elems].reshape(template_shape)
 
         t_min = ts.min()
@@ -146,9 +155,11 @@ class TemplateImageDecoder(nn.Module):
         if self._use_alpha_channel:
             alphas = torch.zeros(self._n_caps, 1, *self._template_size)
             ts = torch.cat([ts, alphas], dim=1)
+        else:
+            self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
         self.templates = torch.nn.Parameter(self._template_nonlin(ts), requires_grad=True)
 
-    def forward(self, poses, presences=None, bg_image=None):
+    def forward(self, poses, presences=None):
         """
 
         :param capsules:
@@ -167,30 +178,34 @@ class TemplateImageDecoder(nn.Module):
         # templates             shape             (self._n_caps, n_dims, self._template_size)
         # template_stack        shape (batch_size* self._n_caps, n_dims, self._template_size)
         # transformed_templates shape (batch_size, self._n_caps, n_dims, self._output_size)
-        template_stack = self.templates.repeat(batch_size, 1, 1, 1)  # TODO: see if auto broadcasting over batch dim works
+        template_stack = self.templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
         transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
 
-        if bg_image is None:
-            bg_value = torch.nn.functional.sigmoid(self.bg_value)
-            bg_image = torch.zeros(batch_size, self._n_channels, *self._output_size).cuda() + bg_value
+        bg_value = torch.nn.functional.sigmoid(self.bg_value)
+        bg_image = torch.zeros(batch_size, 1, self._n_channels, *self._output_size).cuda() + bg_value
+
+        # presences          shape (batch_size, self._n_caps)
+        presence_probs = presences.view(batch_size, self._n_caps, 1, 1, 1)
 
         if self._use_alpha_channel:
+            tt_rgb, tt_a = transformed_templates.split((self._n_channels, 1), dim=2)
             # template_logits    shape (batch_size, self._n_caps, self._output_size)
-            # presences          shape (batch_size, self._n_caps)
-            presence_probs = presences.view(batch_size, self._n_caps, 1, 1)
-            template_logits = transformed_templates[:, :, -1, ...] + torch.log(presence_probs)  # TODO: make log safe
+            tt_logits = tt_a + torch.log(presence_probs)  # TODO: make log safe
+            bg_logits = self.bg_logit
         else:
-            raise NotImplementedError()
-            # temperature_logit = tf.get_variable('temperature_logit', shape=[1])
-            # temperature = tf.nn.softplus(temperature_logit + .5) + 1e-4
-            # template_mixing_logits = transformed_templates / temperature
+            tt_rgb = transformed_templates
 
+            temperature = F.softplus(self.temperature_logit + .5) + 1e-4
+            tt_logits = tt_rgb / temperature + torch.log(presence_probs)  # TODO: make log safe
+            bg_logits = bg_image / temperature
+
+        bg_logits = bg_logits.expand(batch_size, 1, 1, *self._output_size)
         # TODO: add template colorization from features
 
-        # mixture_logits shape (batch_size, self._n_caps + 1, self._output_size)
+        # mixture_logits shape (batch_size, self._n_caps + 1, self._n_channels, self._output_size)
         # mixture_means  shape (batch_size, self._n_caps + 1, self._n_channels, self._output_size)
-        mixture_logits = torch.cat([template_logits, self.bg_logit.expand(batch_size, 1, *self._output_size)], dim=1)
-        mixture_means = torch.cat([transformed_templates[:, :, :-1, ...], bg_image.unsqueeze(1)], dim=1)
+        mixture_logits = torch.cat([tt_logits, bg_logits], dim=1)
+        mixture_means = torch.cat([tt_rgb, bg_image], dim=1)
         mixture_pdf = math_utils.MixtureDistribution(mixture_logits, mixture_means)
 
         return EasyDict(
