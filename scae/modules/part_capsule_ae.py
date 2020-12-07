@@ -141,7 +141,7 @@ class TemplateImageDecoder(nn.Module):
 
         # make each templates orthogonal to each other at init
         n = max(self._n_caps, n_elems)
-        q, _ = torch.qr(torch.rand(n, n))
+        q, _ = torch.qr(torch.rand(n, n))  # TODO: test whether orthogonal init is even helpful
 
         col_idxs = list(range(q.shape[1]))
         random.shuffle(col_idxs)
@@ -151,13 +151,13 @@ class TemplateImageDecoder(nn.Module):
 
         t_min = ts.min()
         t_max = ts.max()
-        ts = (ts - t_min) / (t_max - t_min)  # normalize values to [0,1]
+        ts = (ts - t_min) / (t_max - t_min) * 2 - 1  # normalize values to [-1,1]
         if self._use_alpha_channel:
             alphas = torch.zeros(self._n_caps, 1, *self._template_size)
             ts = torch.cat([ts, alphas], dim=1)
         else:
             self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
-        self.templates = torch.nn.Parameter(self._template_nonlin(ts), requires_grad=True)
+        self.templates = torch.nn.Parameter(self._template_nonlin(ts * 2), requires_grad=True)
 
     def forward(self, poses, presences=None):
         """

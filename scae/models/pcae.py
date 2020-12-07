@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 import wandb
 from easydict import EasyDict
@@ -18,6 +19,10 @@ def to_wandb_im(x, **kwargs):  # TODO: move to utils
         x = torch.stack([val]*3 + [alpha], dim=-1)
     return wandb.Image(x.cpu().numpy(), **kwargs)
 
+def rec_to_wandb_im(x, **kwargs):  # TODO: move to utils
+    img =
+    return to_wandb_im(x, mask=, **kwargs)
+
 
 class PCAE(pl.LightningModule):
     def __init__(self, encoder, decoder, args):
@@ -26,7 +31,10 @@ class PCAE(pl.LightningModule):
         self.decoder = decoder
         self.n_classes = args.num_classes
         self.lr = args.pcae_lr
-        self.weight_decay = .001
+        self.lr_decay = args.pcae_lr_decay
+        self.weight_decay = args.pcae_weight_decay
+
+        self.mse = nn.MSELoss()
 
     def forward(self, image):
         capsules = self.encoder(image)
@@ -41,15 +49,24 @@ class PCAE(pl.LightningModule):
         # img    shape (batch_size, C, H, W)
         # labels shape (batch_size)
         img, labels = batch
+        batch_size = img.shape[0]
 
         capsules, rec = self(img)
-        rec_ll = rec.pdf.log_prob(img).mean()
-        self.log('rec_log_likelihood', rec_ll, prog_bar=True, on_step=True)
+        rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
+        self.log('rec_log_likelihood', rec_ll, prog_bar=True)
 
-        if batch_idx % 10 == 0:
-            n = 5
+        temp_l1 = F.relu(self.decoder.templates).sum()
+        self.log('temp_l1', temp_l1, prog_bar=True)
+
+        rec_mse = self.mse(rec.pdf.mean(), img)
+        self.log('rec_mse', rec_mse, prog_bar=True)
+
+        if batch_idx == 100: #% 10 == 0:
+            n = 8
             gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
-            rec_imgs = [to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
+            recs =
+
+            rec_imgs = [rec_to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
             gt_rec_imgs = [None]*(2*n)
             gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
 
@@ -61,13 +78,24 @@ class PCAE(pl.LightningModule):
                 'train_imgs': gt_rec_imgs,
                 'templates': template_imgs,
                 'mixture_means': mixture_mean_imgs,
-                'mixture_logits': mixture_logit_imgs},
-                commit=True)
-        return -rec_ll + 100*torch.norm(self.decoder.templates)
+                'mixture_logits': mixture_logit_imgs,
+                'epoch': self.current_epoch},
+                commit=False)
+
+        loss = - rec_ll \
+               + temp_l1 * self.weight_decay  # + rec_mse*100
+        if torch.isnan(loss).any():  # TODO: try grad clipping?
+            raise ValueError('loss is nan')
+        return loss
 
     def training_epoch_end(self, outputs):
         ...
         # self.log('train_acc_epoch', self.accuracy.compute())
 
     def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        opt = torch.optim.SGD([
+            {'params': self.encoder.parameters(), 'weight_decay': 0},
+            {'params': self.decoder.parameters(), 'lr': self.lr * 50, 'weight_decay': 0}
+        ], lr=self.lr, weight_decay=self.weight_decay)
+        lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+        return [opt], [lr_sched]

@@ -12,20 +12,22 @@ from easydict import EasyDict
 def parse_args():
     parser = argparse.ArgumentParser()
     # Trainer params
-    parser.add_argument('-bs', '--batch_size', type=int, default=2048)
-    parser.add_argument('-es', '--num_epochs', type=int, default=150)
+    parser.add_argument('-bs', '--batch_size', type=int, default=128)
+    parser.add_argument('-es', '--num_epochs', type=int, default=3000)
     parser.add_argument('--model', type=str, default='PCAE', help='PCAE')
 
     # Dataset Params
     parser.add_argument('--data', type=str, default="MNIST")
-    # parser.add_argument('--use_aug', action="store_true", default=False, help="If this is true, using data augmentation")
+    parser.add_argument('--data_workers', type=int, default=8)
 
     # Sub AutoEncoder Params
     pcae_args = parser.add_argument_group('PCAE Params')
     pcae_args.add_argument('--pcae_n_caps', type=int, default=16)
     pcae_args.add_argument('--pcae_caps_dim', type=int, default=6)
     pcae_args.add_argument('--pcae_feat_dim', type=int, default=16)
-    pcae_args.add_argument('--pcae_lr', type=int, default=5e-2)
+    pcae_args.add_argument('--pcae_lr', type=float, default=1e-4)
+    pcae_args.add_argument('--pcae_lr_decay', type=float, default=.998)  # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
+    pcae_args.add_argument('--pcae_weight_decay', type=float, default=.01)
     pcae_args.add_argument('--alpha_channel', action="store_true", default=False)
 
     ocae_args = parser.add_argument_group('OCAE Params')
@@ -53,9 +55,9 @@ def main():
             transforms.ToTensor()
         ])
         train_dataset = MNIST('data', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+        train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
         val_dataset = MNIST('data', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
     else:
         raise NotImplementedError(args.data)
 

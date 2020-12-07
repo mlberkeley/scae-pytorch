@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
+from functools import cached_property
 
 def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False):
     """
@@ -66,11 +66,11 @@ class MixtureDistribution(torch.distributions.Distribution):
         self._var = var
         self._distributions = distribution(loc=means, scale=var)
 
-    @property
+    @cached_property
     def mixing_log_prob(self):
         return self._mixing_logits - self._mixing_logits.exp().sum(dim=1, keepdims=True).log()
 
-    @property
+    @cached_property
     def mixing_prob(self):
         return torch.softmax(self._mixing_logits, dim=1)
 
@@ -89,16 +89,12 @@ class MixtureDistribution(torch.distributions.Distribution):
         logits = logits.sum(dim=2) + self.mixing_log_prob.sum(dim=2)
         # sum probs over distributions
         logits = logits.exp().sum(dim=1).log()
-        # multiply probabilities over pixels
-        logits = logits.view(batch_size, -1).sum(dim=-1)
         return logits
 
     def mean(self, idx=None):
         # returns weighted average over all distributions
         if idx is not None:
-            return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0).detach()
+            return (self._means[idx] * self.mixing_prob[idx]).detach()
         else:
-            return (self._means * self.mixing_prob).sum(dim=1).detach()
-
-
+            return (self._means * self.mixing_prob).detach()
 
