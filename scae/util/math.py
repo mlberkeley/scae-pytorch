@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from functools import cached_property
+# import functools  # TODO: update to python 3.8+ to use functools.cached_property
 
 def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False):
     """
@@ -66,11 +66,11 @@ class MixtureDistribution(torch.distributions.Distribution):
         self._var = var
         self._distributions = distribution(loc=means, scale=var)
 
-    @cached_property
+    @property
     def mixing_log_prob(self):
         return self._mixing_logits - self._mixing_logits.exp().sum(dim=1, keepdims=True).log()
 
-    @cached_property
+    @property
     def mixing_prob(self):
         return torch.softmax(self._mixing_logits, dim=1)
 
@@ -94,7 +94,7 @@ class MixtureDistribution(torch.distributions.Distribution):
     def mean(self, idx=None):
         # returns weighted average over all distributions
         if idx is not None:
-            return (self._means[idx] * self.mixing_prob[idx]).detach()
+            return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0).detach()
         else:
-            return (self._means * self.mixing_prob).detach()
+            return (self._means * self.mixing_prob).sum(dim=1).detach()
 

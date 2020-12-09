@@ -20,8 +20,8 @@ def to_wandb_im(x, **kwargs):  # TODO: move to utils
     return wandb.Image(x.cpu().numpy(), **kwargs)
 
 def rec_to_wandb_im(x, **kwargs):  # TODO: move to utils
-    img =
-    return to_wandb_im(x, mask=, **kwargs)
+    # TODO: unpack reconstruction template components
+    return to_wandb_im(x, **kwargs)
 
 
 class PCAE(pl.LightningModule):
@@ -40,10 +40,6 @@ class PCAE(pl.LightningModule):
         capsules = self.encoder(image)
         reconstruction = self.decoder(capsules.poses, capsules.presences)
         return capsules, reconstruction
-
-    def agg_losses(self, losses):
-        loss = -losses.rec_ll
-        return loss
 
     def training_step(self, batch, batch_idx):
         # img    shape (batch_size, C, H, W)
@@ -64,8 +60,6 @@ class PCAE(pl.LightningModule):
         if batch_idx == 100: #% 10 == 0:
             n = 8
             gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
-            recs =
-
             rec_imgs = [rec_to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
             gt_rec_imgs = [None]*(2*n)
             gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
