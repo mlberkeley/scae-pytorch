@@ -1,23 +1,27 @@
 import argparse
 import os
+
 import wandb
+from easydict import EasyDict
+
 import torch
-from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchvision import transforms
+
 import pytorch_lightning as pl
-from easydict import EasyDict
+from pytorch_lightning.loggers import WandbLogger
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
+
     # Trainer params
     parser.add_argument('-bs', '--batch_size', type=int, default=128)
     parser.add_argument('-es', '--num_epochs', type=int, default=3000)
     parser.add_argument('--model', type=str, default='PCAE', help='PCAE')
 
     # Dataset Params
-    parser.add_argument('--data', type=str, default="MNIST")
+    parser.add_argument('--data', type=str, default='MNIST')
     parser.add_argument('--data_workers', type=int, default=8)
 
     # Sub AutoEncoder Params
@@ -50,12 +54,15 @@ def main():
         args.im_channels = 1
 
         from torchvision.datasets import MNIST
+
         t = transforms.Compose([
             transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
             transforms.ToTensor()
         ])
+
         train_dataset = MNIST('data', train=True, transform=t, download=True)
         train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+
         val_dataset = MNIST('data', train=False, transform=t, download=True)
         val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
     else:
@@ -68,6 +75,7 @@ def main():
     if args.model == 'PCAE':
         from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
         from scae.models.pcae import PCAE
+
         encoder = CapsuleImageEncoder(args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
         decoder = TemplateImageDecoder(args.pcae_n_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
         model = PCAE(encoder, decoder, args)

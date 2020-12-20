@@ -1,6 +1,5 @@
 import os
 
-# Adding Weights & Biases Integration
 import wandb
 
 import torch
@@ -9,6 +8,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import MNIST
 from torchvision import transforms
+
 import pytorch_lightning as pl
 from pytorch_lightning.metrics.functional import accuracy
 
@@ -44,7 +44,7 @@ class CapsNet(pl.LightningModule):
             nn.Dropout(0.1),
             nn.Linear(hidden_size, self.num_classes)
         )
-		
+
 		# A logging frequency and W&B setup
 		self.log_freq = 1
 		wandb.init(name="ML@B Semantic Convs Project")

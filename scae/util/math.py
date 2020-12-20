@@ -1,7 +1,9 @@
+# import functools  # TODO: update to python 3.8+ to use functools.cached_property
+
+import numpy as np
+
 import torch
 import torch.nn as nn
-import numpy as np
-# import functools  # TODO: update to python 3.8+ to use functools.cached_property
 
 def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False):
     """

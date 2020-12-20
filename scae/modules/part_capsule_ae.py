@@ -1,13 +1,13 @@
 import random
 
 import numpy as np
+from easydict import EasyDict
+
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from easydict import EasyDict
 
 import scae.util.math as math_utils
-
 
 class ConvAttn(nn.Module):
     def __init__(self, n_caps, n_dims, in_channels=128):

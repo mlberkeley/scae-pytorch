@@ -1,22 +1,28 @@
+import wandb
+from easydict import EasyDict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 import pytorch_lightning as pl
-import wandb
-from easydict import EasyDict
 
 
 def to_wandb_im(x, **kwargs):  # TODO: move to utils
     x = x.detach()
+
     if len(x.shape) == 3:
         # Torch uses C, H, W
         x = x.permute(1, 2, 0)
+
     if x.shape[-1] == 2:
         # channels = val, alpha
         val = x[..., 0]
         alpha = x[..., 1]
+
         # convert to RGBA
         x = torch.stack([val]*3 + [alpha], dim=-1)
+
     return wandb.Image(x.cpu().numpy(), **kwargs)
 
 def rec_to_wandb_im(x, **kwargs):  # TODO: move to utils
@@ -27,13 +33,15 @@ def rec_to_wandb_im(x, **kwargs):  # TODO: move to utils
 class PCAE(pl.LightningModule):
     def __init__(self, encoder, decoder, args):
         super(PCAE, self).__init__()
+
         self.encoder = encoder
         self.decoder = decoder
-        self.n_classes = args.num_classes
+
         self.lr = args.pcae_lr
         self.lr_decay = args.pcae_lr_decay
         self.weight_decay = args.pcae_weight_decay
 
+        self.n_classes = args.num_classes
         self.mse = nn.MSELoss()
 
     def forward(self, image):
@@ -78,8 +86,10 @@ class PCAE(pl.LightningModule):
 
         loss = - rec_ll \
                + temp_l1 * self.weight_decay  # + rec_mse*100
+
         if torch.isnan(loss).any():  # TODO: try grad clipping?
             raise ValueError('loss is nan')
+
         return loss
 
     def training_epoch_end(self, outputs):
@@ -91,5 +101,7 @@ class PCAE(pl.LightningModule):
             {'params': self.encoder.parameters(), 'weight_decay': 0},
             {'params': self.decoder.parameters(), 'lr': self.lr * 50, 'weight_decay': 0}
         ], lr=self.lr, weight_decay=self.weight_decay)
+
         lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+
         return [opt], [lr_sched]
