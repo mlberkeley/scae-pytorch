@@ -30,9 +30,11 @@ def parse_args():
     pcae_args.add_argument('--pcae_caps_dim', type=int, default=6)
     pcae_args.add_argument('--pcae_feat_dim', type=int, default=16)
     pcae_args.add_argument('--pcae_lr', type=float, default=1e-4)
-    pcae_args.add_argument('--pcae_lr_decay', type=float, default=.998)  # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
+    # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
+    pcae_args.add_argument('--pcae_lr_decay', type=float, default=.998)
     pcae_args.add_argument('--pcae_weight_decay', type=float, default=.01)
-    pcae_args.add_argument('--alpha_channel', action="store_true", default=False)
+    pcae_args.add_argument(
+        '--alpha_channel', action="store_true", default=False)
 
     ocae_args = parser.add_argument_group('OCAE Params')
     ocae_args.add_argument('--ocae_lr', type=float, default=1e-1)
@@ -40,7 +42,8 @@ def parse_args():
     # Logging Params
     logger_args = parser.add_argument_group('Logger Params')
     logger_args.add_argument('--name', type=str, default=None)
-    logger_args.add_argument('--project', type=str, default='StackedCapsuleAutoEncoders')
+    logger_args.add_argument('--project', type=str,
+                             default='StackedCapsuleAutoEncoders')
 
     return EasyDict(vars(parser.parse_args()))
 
@@ -61,10 +64,12 @@ def main():
         ])
 
         train_dataset = MNIST('data', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        train_dataloader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
 
         val_dataset = MNIST('data', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        val_dataloader = DataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
     else:
         raise NotImplementedError(args.data)
 
@@ -72,16 +77,42 @@ def main():
     logger = WandbLogger(name=args.name, project=args.project, config=args)
 
     # Init Model
+    if args.model == 'CCAE':
+        from scae.modules.constellation_ae import (SetTransformer,
+                                                   ConstellationCapsule)
+        from scae.models.ccae import CCAE
+
+        encoder = SetTransformer()
+        decoder = ConstellationCapsule()
+        model = CCAE(encoder, decoder, args)
+
+        # logger.watch(encoder._encoder, log='all', log_freq=10)
+        # logger.watch(decoder, log='all', log_freq=10)
+
     if args.model == 'PCAE':
-        from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
+        from scae.modules.part_capsule_ae import (CapsuleImageEncoder,
+                                                  TemplateImageDecoder)
         from scae.models.pcae import PCAE
 
-        encoder = CapsuleImageEncoder(args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
-        decoder = TemplateImageDecoder(args.pcae_n_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
+        encoder = CapsuleImageEncoder(
+            args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
+        decoder = TemplateImageDecoder(
+            args.pcae_n_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
         model = PCAE(encoder, decoder, args)
 
         logger.watch(encoder._encoder, log='all', log_freq=10)
         logger.watch(decoder, log='all', log_freq=10)
+
+    if args.model == 'OCAE':
+        from scae.modules.object_capsule_ae import (SetTransformer,
+                                                    ImageCapsule)
+        from scae.models.ocae import OCAE
+
+        encoder = SetTransformer()
+        decoder = ImageCapsule()
+        model = OCAE(encoder, decoder, args)
+
+        #  TODO: after ccae #
     else:
         raise NotImplementedError()
 
@@ -92,4 +123,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

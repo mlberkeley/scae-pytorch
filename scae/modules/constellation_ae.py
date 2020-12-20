@@ -6,7 +6,7 @@ class SetTransformer():
         pass
 
 
-class ImageCapsule():
+class ConstellationCapsule():
 
     """Decoder."""
 
