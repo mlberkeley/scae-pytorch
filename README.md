@@ -18,9 +18,9 @@ The official implementation uses Tensorflow 1, Sonnet (for TF1), and relies on p
 
 # Results
 
-This [Weights and Biases project](https://wandb.ai/mlatberkeley/semantic-convolutions) hosts runs of both the original Google Research implementation and this Torch port.
+[Weights and Biases project](https://wandb.ai/mlatberkeley/semantic-convolutions) hosting runs of both the original Google Research implementation and this Torch port.
 
-Additional results and analysis is available in this [Weights and Biases report (TODO)](TODO) and in our [research presentation (TODO)](TODO).
+[Weights and Biases report (TODO)](TODO) and the [research presentation (TODO)](TODO) contain additional results and analysis.
 
 This project was featured in a 10-minute block on [Weights and Biases Salon (TODO)](TODO) as part of the ML@B project showcase for Fall 2020. Included is a summary of the research presentation and Q&A with two of our project members.
 
