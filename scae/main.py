@@ -14,37 +14,92 @@ from pytorch_lightning.loggers import WandbLogger
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog='scae',
+        description='Training/evaluation/inference script for Stacked Capsule Autoencoders',
+        allow_abbrev=False,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    # Trainer params
-    parser.add_argument('-bs', '--batch_size', type=int, default=128)
-    parser.add_argument('-es', '--num_epochs', type=int, default=3000)
-    parser.add_argument('--model', type=str, default='PCAE', help='PCAE')
+    # todo(maximsmol): add inference and evaluation
+    parser.add_argument(
+        '-n', '--batch-size',
+        type=int, default=128,
+        help='number of samples to per mini-batch')
+    parser.add_argument(
+        '-N', '--num-epochs',
+        type=int, default=3000,
+        metavar='NEPOCHS',
+        help='number of epochs to train for')
 
-    # Dataset Params
-    parser.add_argument('--data', type=str, default='MNIST')
-    parser.add_argument('--data_workers', type=int, default=8)
+    parser.add_argument(
+        '--model',
+        type=str.lower, default='pcae',
+        choices=['ccae', 'pcae', 'ocae', 'scae'],
+        # todo(maximsmol): change default
+        help='which part of the model to run')
 
-    # Sub AutoEncoder Params
-    pcae_args = parser.add_argument_group('PCAE Params')
-    pcae_args.add_argument('--pcae_n_caps', type=int, default=16)
-    pcae_args.add_argument('--pcae_caps_dim', type=int, default=6)
-    pcae_args.add_argument('--pcae_feat_dim', type=int, default=16)
-    pcae_args.add_argument('--pcae_lr', type=float, default=1e-4)
-    # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
-    pcae_args.add_argument('--pcae_lr_decay', type=float, default=.998)
-    pcae_args.add_argument('--pcae_weight_decay', type=float, default=.01)
+
+    parser.add_argument(
+        '--dataset',
+        type=str.lower, default='mnist',
+        choices=['mnist'],
+        help='dataset to use [default = MNIST]')
+    parser.add_argument(
+        '--data-workers',
+        type=int, default=len(os.sched_getaffinity(0)),
+        metavar='NWORKERS',
+        help='number of data loader workers to spawn')
+
+
+    pcae_args = parser.add_argument_group('PCAE Parameters')
     pcae_args.add_argument(
-        '--alpha_channel', action="store_true", default=False)
+        '--pcae-num-caps',
+        type=int, default=16,
+        metavar='PCAE_NCAPS',
+        help='number of capsules')
+    pcae_args.add_argument(
+        '--pcae-caps-dim',
+        type=int, default=6,
+        help='number of dimensions per capsule')
+    pcae_args.add_argument(
+        '--pcae-feat-dim',
+        type=int, default=16,
+        help='number of feature dimensions per capsule')
+    pcae_args.add_argument(
+        '--pcae-lr',
+        type=float, default=1e-4,
+        help='learning rate')
+    # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
+    pcae_args.add_argument(
+        '--pcae-lr-decay',
+        type=float, default=.998,
+        help='learning rate decay')
+    pcae_args.add_argument(
+        '--pcae-weight-decay',
+        type=float, default=.01,
+        help='weight decay')
+    pcae_args.add_argument(
+        '--alpha-channel',
+        action='store_true', default=False,
+        help='expect input images to have an alpha channel')
 
-    ocae_args = parser.add_argument_group('OCAE Params')
-    ocae_args.add_argument('--ocae_lr', type=float, default=1e-1)
 
-    # Logging Params
-    logger_args = parser.add_argument_group('Logger Params')
-    logger_args.add_argument('--name', type=str, default=None)
-    logger_args.add_argument('--project', type=str,
-                             default='StackedCapsuleAutoEncoders')
+    ocae_args = parser.add_argument_group('OCAE Parameters')
+    ocae_args.add_argument(
+        '--ocae-lr',
+        type=float, default=1e-1,
+        help='learning rate')
+
+
+    logger_args = parser.add_argument_group('Logger Parameters')
+    logger_args.add_argument(
+        '--logger-run-name',
+        type=str, default=None,
+        help='run name to use')
+    logger_args.add_argument(
+        '--logger-project',
+        type=str, default='SCAE',
+        help='project to log to')
 
     return EasyDict(vars(parser.parse_args()))
 
@@ -62,7 +117,7 @@ def main():
     torch.autograd.set_detect_anomaly(True)
 
     # Init Dataset
-    if args.data == 'MNIST':
+    if args.dataset == 'mnist':
         args.num_classes = 10
         args.im_channels = 1
 
@@ -81,13 +136,13 @@ def main():
         val_dataloader = DataLoader(
             val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
     else:
-        raise NotImplementedError(args.data)
+        raise NotImplementedError()
 
     # Init Logger
-    logger = WandbLogger(name=args.name, project=args.project, config=args, offline=True)
+    logger = WandbLogger(name=args.logger_run_name, project=args.logger_project, config=args, offline=True)
 
     # Init Model
-    if args.model == 'CCAE':
+    if args.model == 'ccae':
         from scae.modules.constellation_ae import (SetTransformer,
                                                    ConstellationCapsule)
         from scae.models.ccae import CCAE
@@ -99,20 +154,20 @@ def main():
         # logger.watch(encoder._encoder, log='all', log_freq=10)
         # logger.watch(decoder, log='all', log_freq=10)
 
-    if args.model == 'PCAE':
+    if args.model == 'pcae':
         from scae.modules.part_capsule_ae import (CapsuleImageEncoder,
                                                   TemplateImageDecoder)
         from scae.models.pcae import PCAE
 
         encoder = CapsuleImageEncoder(
-            args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
+            args.pcae_num_caps, args.pcae_caps_dim, args.pcae_feat_dim)
         decoder = TemplateImageDecoder(
-            args.pcae_n_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
+            args.pcae_num_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
         model = PCAE(encoder, decoder, args)
 
         logger.watch(encoder._encoder, log='all', log_freq=10)
         logger.watch(decoder, log='all', log_freq=10)
-    elif args.model == 'OCAE':
+    elif args.model == 'ocae':
         from scae.modules.object_capsule_ae import (SetTransformer,
                                                     ImageCapsule)
         from scae.models.ocae import OCAE
