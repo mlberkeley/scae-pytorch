@@ -4,6 +4,7 @@ import os
 import wandb
 from easydict import EasyDict
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -11,48 +12,25 @@ from torchvision import transforms
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    # Trainer params
-    parser.add_argument('-bs', '--batch_size', type=int, default=128)
-    parser.add_argument('-es', '--num_epochs', type=int, default=3000)
-    parser.add_argument('--model', type=str, default='PCAE', help='PCAE')
-
-    # Dataset Params
-    parser.add_argument('--data', type=str, default='MNIST')
-    parser.add_argument('--data_workers', type=int, default=8)
-
-    # Sub AutoEncoder Params
-    pcae_args = parser.add_argument_group('PCAE Params')
-    pcae_args.add_argument('--pcae_n_caps', type=int, default=16)
-    pcae_args.add_argument('--pcae_caps_dim', type=int, default=6)
-    pcae_args.add_argument('--pcae_feat_dim', type=int, default=16)
-    pcae_args.add_argument('--pcae_lr', type=float, default=1e-4)
-    # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
-    pcae_args.add_argument('--pcae_lr_decay', type=float, default=.998)
-    pcae_args.add_argument('--pcae_weight_decay', type=float, default=.01)
-    pcae_args.add_argument(
-        '--alpha_channel', action="store_true", default=False)
-
-    ocae_args = parser.add_argument_group('OCAE Params')
-    ocae_args.add_argument('--ocae_lr', type=float, default=1e-1)
-
-    # Logging Params
-    logger_args = parser.add_argument_group('Logger Params')
-    logger_args.add_argument('--name', type=str, default=None)
-    logger_args.add_argument('--project', type=str,
-                             default='StackedCapsuleAutoEncoders')
-
-    return EasyDict(vars(parser.parse_args()))
-
+from scae.args import parse_args
 
 def main():
     args = parse_args()
 
-    # Init Dataset
-    if args.data == 'MNIST':
+    if args.debug or not args.non_deterministic:
+        np.random.seed(1)
+        torch.manual_seed(1)
+        torch.cuda.manual_seed(1)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+        # torch.set_deterministic(True) # grid_sampler_2d_backward_cuda does not have a deterministic implementation
+
+    if args.debug:
+        torch.autograd.set_detect_anomaly(True)
+
+
+    if args.dataset == 'mnist':
         args.num_classes = 10
         args.im_channels = 1
 
@@ -71,41 +49,39 @@ def main():
         val_dataloader = DataLoader(
             val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
     else:
-        raise NotImplementedError(args.data)
+        raise NotImplementedError()
 
-    # Init Logger
-    logger = WandbLogger(name=args.name, project=args.project, config=args)
 
-    # Init Model
-    if args.model == 'CCAE':
-        from scae.modules.constellation_ae import (SetTransformer,
-                                                   ConstellationCapsule)
+    logger = WandbLogger(
+        project=args.log_project,
+        name=args.log_run_name,
+        config=args, offline=not args.log_upload)
+
+
+    if args.model == 'ccae':
+        from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
         from scae.models.ccae import CCAE
 
         encoder = SetTransformer()
         decoder = ConstellationCapsule()
         model = CCAE(encoder, decoder, args)
 
-        # logger.watch(encoder._encoder, log='all', log_freq=10)
-        # logger.watch(decoder, log='all', log_freq=10)
-
-    if args.model == 'PCAE':
-        from scae.modules.part_capsule_ae import (CapsuleImageEncoder,
-                                                  TemplateImageDecoder)
+        # logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)
+        # logger.watch(decoder, log='all', log_freq=args.log_frequency)
+    elif args.model == 'pcae':
+        from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
         from scae.models.pcae import PCAE
 
         encoder = CapsuleImageEncoder(
-            args.pcae_n_caps, args.pcae_caps_dim, args.pcae_feat_dim)
+            args.pcae_num_caps, args.pcae_caps_dim, args.pcae_feat_dim)
         decoder = TemplateImageDecoder(
-            args.pcae_n_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
+            args.pcae_num_caps, use_alpha_channel=args.alpha_channel, output_size=(40, 40))
         model = PCAE(encoder, decoder, args)
 
-        logger.watch(encoder._encoder, log='all', log_freq=10)
-        logger.watch(decoder, log='all', log_freq=10)
-
-    if args.model == 'OCAE':
-        from scae.modules.object_capsule_ae import (SetTransformer,
-                                                    ImageCapsule)
+        logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)
+        logger.watch(decoder, log='all', log_freq=args.log_frequency)
+    elif args.model == 'ocae':
+        from scae.modules.object_capsule_ae import SetTransformer, ImageCapsule
         from scae.models.ocae import OCAE
 
         encoder = SetTransformer()
@@ -119,7 +95,6 @@ def main():
     # Execute Experiment
     trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger)
     trainer.fit(model, train_dataloader)
-
 
 if __name__ == "__main__":
     main()

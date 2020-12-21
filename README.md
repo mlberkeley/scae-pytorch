@@ -24,6 +24,15 @@ The official implementation uses Tensorflow 1, Sonnet (for TF1), and relies on p
 
 This project was featured in a 10-minute block on [Weights and Biases Salon (TODO)](TODO) as part of the ML@B project showcase for Fall 2020. Included is a summary of the research presentation and Q&A with two of our project members.
 
+# Usage
+
+Run either of the following to install the dependencies:
+
+* `conda env create -f environment.yaml && conda activate scae`
+* `pip install -r requirements.txt` (needs Python 3.9)
+
+`train.sh` runs training in deterministic mode with reasonable default hyperparameters. It will log to Weights and Biases in offline mode (it will not ask for an API key or upload anything to the website)
+
 # Capsules and Semantic Meaning
 
 ## Background
