@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 
 def safe_log(tensor, eps=1e-16):
-    is_zero = ~tensor.eq(torch.zeros(tensor.shape))
-    tensor = torch.where(is_zero, torch.ones_like(tensor), tensor)
-    tensor = torch.where(is_zero, torch.zeros_like(tensor) - 1e8,
+    is_zero = tensor.le(eps)
+    tensor = torch.where(is_zero, torch.ones_like(tensor).to('cuda'), tensor)
+    tensor = torch.where(is_zero, torch.zeros_like(tensor).to('cuda') - 1e8,
                          torch.log(tensor))
     return tensor
 
@@ -120,7 +120,7 @@ class MixtureDistribution(torch.distributions.Distribution):
     def mean(self, idx=None):
         # returns weighted average over all distributions
         if idx is not None:
-            return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0).detach()
+            return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0)
         else:
-            return (self._means * self.mixing_prob).sum(dim=1).detach()
+            return (self._means * self.mixing_prob).sum(dim=1)
 

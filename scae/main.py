@@ -11,6 +11,7 @@ from torchvision import transforms
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
+import pytorch_lightning.callbacks as cb
 
 from scae.args import parse_args
 
@@ -55,6 +56,7 @@ def main():
     logger = WandbLogger(
         project=args.log_project,
         name=args.log_run_name,
+        entity=args.log_team,
         config=args, offline=not args.log_upload)
 
 
@@ -93,7 +95,8 @@ def main():
         raise NotImplementedError()
 
     # Execute Experiment
-    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger)
+    lr_logger = cb.LearningRateMonitor(logging_interval='step')
+    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger, callbacks=[lr_logger])
     trainer.fit(model, train_dataloader)
 
 if __name__ == "__main__":
