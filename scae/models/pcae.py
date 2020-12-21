@@ -1,5 +1,6 @@
 import wandb
 from easydict import EasyDict
+import torch_optimizer as optim
 
 import torch
 import torch.nn as nn
@@ -65,6 +66,12 @@ class PCAE(pl.LightningModule):
         rec_mse = self.mse(rec.pdf.mean(), img)
         self.log('rec_mse', rec_mse, prog_bar=True)
 
+        losses = EasyDict(
+            rec_log_likelihood=rec_ll,
+            temp_l1=temp_l1,
+            rec_mse=rec_mse
+        )
+
         if batch_idx == 100:  # % 10 == 0:
             n = 8
             gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
@@ -85,19 +92,16 @@ class PCAE(pl.LightningModule):
                 commit=False)
 
         loss = - rec_ll \
-               + temp_l1 * self.weight_decay  # + rec_mse*100
+               + temp_l1 * self.weight_decay \
+               - (capsules.presences).sum()
 
         if torch.isnan(loss).any():  # TODO: try grad clipping?
             raise ValueError('loss is nan')
 
         return loss
 
-    def training_epoch_end(self, outputs):
-        ...
-        # self.log('train_acc_epoch', self.accuracy.compute())
-
     def configure_optimizers(self):
-        opt = torch.optim.SGD([
+        opt = optim.RAdam([
             {'params': self.encoder.parameters(), 'weight_decay': 0},
             {'params': self.decoder.parameters(), 'lr': self.lr * 50, 'weight_decay': 0}
         ], lr=self.lr, weight_decay=self.weight_decay)
