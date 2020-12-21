@@ -1,9 +1,33 @@
 # import functools  # TODO: update to python 3.8+ to use functools.cached_property
 
 import numpy as np
-
+import torch.distributions as D
 import torch
 import torch.nn as nn
+
+def safe_log(tensor, eps=1e-16):
+    is_zero = ~tensor.eq(torch.zeros(tensor.shape))
+    tensor = torch.where(is_zero, torch.ones_like(tensor), tensor)
+    tensor = torch.where(is_zero, torch.zeros_like(tensor) - 1e8,
+                         torch.log(tensor))
+    return tensor
+
+def add_noise(tensor, noise_type, scale):
+    if noise_type == 'uniform':
+        noise = (torch.rand(tensor.shape) - 0.5) * scale
+    elif noise_type == 'logistic':
+        base_distribution = D.uniform.Uniform(0, 1)
+        transforms = [D.transforms.SigmoidTransform().inv,
+                      D.tranforms.AffineTransform(loc=0, scale=scale)]
+        pdf = D.transformed_distribution.TransformedDistribution(
+            base_distribution, transforms)
+        noise = pdf.sample(tensor.shape)
+    elif not noise_type:
+        noise = 0.
+    else:
+        raise ValueError('Invalid noise type: "{}".'.format(noise_type))
+    return tensor + noise
+
 
 def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False):
     """
