@@ -82,12 +82,12 @@ def parse_args():
     pcae_args.add_argument(
         '--pcae-optimizer',
         type=str.lower, default='sgd',
-        choices=['sgd', 'radam']
+        choices=['sgd', 'radam'],
         help='optimizer algorithm')
     pcae_args.add_argument(
         '--pcae-lr-scheduler',
         type=str.lower, default='exp',
-        choices=['exp', 'cosrestarts']
+        choices=['exp', 'cosrestarts'],
         help='learning rate scheduler')
     pcae_args.add_argument(
         '--pcae-loss-ll-coeff',

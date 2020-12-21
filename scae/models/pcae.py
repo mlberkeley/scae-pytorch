@@ -63,7 +63,7 @@ class PCAE(pl.LightningModule):
         rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
         self.log('rec_log_likelihood', rec_ll, prog_bar=True)
 
-        temp_l1 = F.relu(self.decoder.templates).sum()
+        temp_l1 = F.relu(self.decoder.templates).mean()
         self.log('temp_l1', temp_l1, prog_bar=True)
 
         rec_mse = self.mse(rec.pdf.mean(), img)
@@ -84,7 +84,7 @@ class PCAE(pl.LightningModule):
             self.logger.experiment.log({
                 'train_imgs': gt_rec_imgs,
                 'templates': template_imgs,
-                'trans_tempaltes': trans_template_imgs, # todo(maximsmol): typo
+                'trans_templates': trans_template_imgs, # todo(maximsmol): typo
                 'mixture_means': mixture_mean_imgs,
                 'mixture_logits': mixture_logit_imgs,
                 'epoch': self.current_epoch},
