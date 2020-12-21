@@ -5,6 +5,12 @@ import torch.distributions as D
 import torch
 import torch.nn as nn
 
+def normalize(tensor, axis):
+    return tensor / (torch.sum(tensor, axis, keepdims=True) + 1e-8)
+
+def safe_ce(labels, probs, axis=-1):
+    return torch.mean(-torch.sum(labels*safe_log(probs), dim=axis))
+    
 def safe_log(tensor, eps=1e-16):
     is_zero = tensor.le(eps)
     tensor = torch.where(is_zero, torch.ones_like(tensor).to('cuda'), tensor)
