@@ -65,7 +65,7 @@ class PCAE(pl.LightningModule):
         rec_mse = self.mse(rec.pdf.mean(), img)
         self.log('rec_mse', rec_mse, prog_bar=True)
 
-        if batch_idx == 100: #% 10 == 0:
+        if batch_idx == 100:  # % 10 == 0:
             n = 8
             gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
             rec_imgs = [rec_to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
