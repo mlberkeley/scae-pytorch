@@ -45,8 +45,11 @@ class PCAE(pl.LightningModule):
         self.n_classes = args.num_classes
         self.mse = nn.MSELoss()
 
+        self.args = args
+
     def forward(self, image):
         capsules = self.encoder(image)
+        self.logger.experiment.log({'capsule_presence': capsules.presences.detach().cpu()}, commit=False)
         reconstruction = self.decoder(capsules.poses, capsules.presences)
         return capsules, reconstruction
 
@@ -60,11 +63,11 @@ class PCAE(pl.LightningModule):
         rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
         self.log('rec_log_likelihood', rec_ll, prog_bar=True)
 
-        temp_l1 = F.relu(self.decoder.templates).sum()
-        self.log('temp_l1', temp_l1, prog_bar=True)
+        temp_l1 = F.relu(self.decoder.templates).mean()
+        self.log('temp_l1', temp_l1.detach(), prog_bar=True)
 
         rec_mse = self.mse(rec.pdf.mean(), img)
-        self.log('rec_mse', rec_mse, prog_bar=True)
+        self.log('rec_mse', rec_mse.detach(), prog_bar=True)
 
         losses = EasyDict(
             rec_log_likelihood=rec_ll,
@@ -79,6 +82,7 @@ class PCAE(pl.LightningModule):
             gt_rec_imgs = [None]*(2*n)
             gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
 
+            trans_template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.trans_templates)]
             template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.raw_templates)]
             mixture_mean_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_means[0])]
             mixture_logit_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_logits[0])]
@@ -86,14 +90,15 @@ class PCAE(pl.LightningModule):
             self.logger.experiment.log({
                 'train_imgs': gt_rec_imgs,
                 'templates': template_imgs,
+                'trans_templates': trans_template_imgs, # todo(maximsmol): typo
                 'mixture_means': mixture_mean_imgs,
                 'mixture_logits': mixture_logit_imgs,
                 'epoch': self.current_epoch},
                 commit=False)
 
-        loss = - rec_ll \
-               + temp_l1 * self.weight_decay \
-               - (capsules.presences).sum()
+        loss = -rec_ll * self.args.pcae_loss_ll_coeff + \
+               temp_l1 * self.args.pcae_loss_temp_l1_coeff + \
+               rec_mse * self.args.pcae_loss_mse_coeff
 
         if torch.isnan(loss).any():  # TODO: try grad clipping?
             raise ValueError('loss is nan')
@@ -101,11 +106,30 @@ class PCAE(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        opt = optim.RAdam([
-            {'params': self.encoder.parameters(), 'weight_decay': 0},
-            {'params': self.decoder.parameters(), 'lr': self.lr * 50, 'weight_decay': 0}
-        ], lr=self.lr, weight_decay=self.weight_decay)
+        if self.args.pcae_optimizer == 'sgd':
+            opt = torch.optim.SGD([
+                {'params': self.encoder.parameters()},
+                {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
+            ], lr=self.lr, weight_decay=self.weight_decay)
+        elif self.args.pcae_optimizer == 'radam':
+            opt = optim.RAdam([
+                {'params': self.encoder.parameters()},
+                {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
+            ], lr=self.lr, weight_decay=self.weight_decay)
+        else:
+            raise NotImplementedError()
 
-        lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+        if self.args.pcae_lr_scheduler == 'exp':
+            scheduler_step = 'epoch'
+            lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+        elif self.args.pcae_lr_scheduler == 'cosrestarts':
+            scheduler_step = 'step'
+            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*4)
+        else:
+            raise NotImplementedError
 
-        return [opt], [lr_sched]
+        return [opt], [{
+            'scheduler': lr_sched,
+            'interval': scheduler_step,
+            'name': 'pcae'
+        }]
