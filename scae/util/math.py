@@ -35,7 +35,8 @@ def add_noise(tensor, noise_type, scale):
     return tensor + noise
 
 
-def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False):
+def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
+                        as_matrix=False, inverse=True):
     """
     Converts parameter tensor into an affine or similarity transform.
     :param pose_tensor: [..., 6] tensor.
@@ -62,7 +63,7 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     if similarity:
         scales = scale_xs
         poses = [scales * cos_thetas, -scales * sin_thetas, trans_xs,
-                scales * sin_thetas, scales * cos_thetas, trans_ys]
+                 scales * sin_thetas, scales * cos_thetas, trans_ys]
     else:
         poses = [
             scale_xs * cos_thetas + shears * scale_ys * sin_thetas,
@@ -75,12 +76,19 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     poses = torch.cat(poses, -1)  # shape (... , 6)
 
     # Convert poses to 3x3 A matrix so: [y, 1] = A [x, 1]
-    if as_3x3:
-        poses = poses.reshape(poses.shape[:-1], 2, 3)
-        bottom_pad = torch.zeros(poses.shape[:-1], 1, 3)
+    if as_matrix or inverse:
+        poses = poses.reshape(*poses.shape[:-1], 2, 3)
+        bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3).cuda()
         bottom_pad[..., 2] = 1
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
-        poses = torch.stack([poses, bottom_pad], dim=-2)
+        poses = torch.cat([poses, bottom_pad], dim=-2)
+
+    if inverse:
+        poses = torch.inverse(poses)
+        if not as_matrix:
+            poses = poses[..., :2, :]
+            poses = poses.reshape(*poses.shape[:-2], 6)
+
     return poses
 
 
