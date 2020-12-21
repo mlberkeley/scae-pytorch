@@ -17,12 +17,12 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(1, dim=-1)
 
     if nonlinear:
-        trans_xs = nn.functional.tanh(trans_xs * 5.)
-        trans_ys = nn.functional.tanh(trans_ys * 5.)
-        scale_xs = nn.functional.sigmoid(scale_xs) + 1e-2
-        scale_ys = nn.functional.sigmoid(scale_ys) + 1e-2
-        shears = nn.functional.tanh(shears * 5.)
-        thetas *= 2. * np.pi
+        trans_xs = torch.tanh(trans_xs * 5.)
+        trans_ys = torch.tanh(trans_ys * 5.)
+        scale_xs = torch.sigmoid(scale_xs) + 1e-2
+        scale_ys = torch.sigmoid(scale_ys) + 1e-2
+        shears = torch.tanh(shears * 5.)
+        thetas = thetas * 2. * np.pi
     else:
         scale_xs = torch.abs(scale_xs) + 1e-2
         scale_ys = torch.abs(scale_ys) + 1e-2

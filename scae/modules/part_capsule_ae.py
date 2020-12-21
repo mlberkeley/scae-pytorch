@@ -89,8 +89,8 @@ class CapsuleImageEncoder(nn.Module):
         presence_logits = presence_logits.squeeze(-1)
         if self._noise_scale > 0.:  # TODO: why do this???
             # Add uniform [-self._noise_scale/2, self._noise_scale/2] noise to logits
-            presence_logits += ((torch.rand(presence_logits.shape).cuda() - .5) * self._noise_scale)
-        presences = nn.functional.sigmoid(presence_logits)
+            presence_logits = presence_logits + ((torch.rand(presence_logits.shape).cuda() - .5) * self._noise_scale)
+        presences = torch.sigmoid(presence_logits)
 
         return EasyDict(
             poses=poses,
@@ -181,7 +181,7 @@ class TemplateImageDecoder(nn.Module):
         template_stack = self.templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
         transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
 
-        bg_value = torch.nn.functional.sigmoid(self.bg_value)
+        bg_value = torch.sigmoid(self.bg_value)
         bg_image = torch.zeros(batch_size, 1, self._n_channels, *self._output_size).cuda() + bg_value
 
         # presences          shape (batch_size, self._n_caps)

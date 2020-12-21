@@ -4,6 +4,7 @@ import os
 import wandb
 from easydict import EasyDict
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -51,6 +52,15 @@ def parse_args():
 def main():
     args = parse_args()
 
+    np.random.seed(1)
+    torch.manual_seed(1)
+    torch.cuda.manual_seed(1)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # torch.set_deterministic(True) # grid_sampler_2d_backward_cuda does not have a deterministic implementation
+    torch.autograd.set_detect_anomaly(True)
+
     # Init Dataset
     if args.data == 'MNIST':
         args.num_classes = 10
@@ -74,7 +84,7 @@ def main():
         raise NotImplementedError(args.data)
 
     # Init Logger
-    logger = WandbLogger(name=args.name, project=args.project, config=args)
+    logger = WandbLogger(name=args.name, project=args.project, config=args, offline=True)
 
     # Init Model
     if args.model == 'CCAE':
@@ -102,8 +112,7 @@ def main():
 
         logger.watch(encoder._encoder, log='all', log_freq=10)
         logger.watch(decoder, log='all', log_freq=10)
-
-    if args.model == 'OCAE':
+    elif args.model == 'OCAE':
         from scae.modules.object_capsule_ae import (SetTransformer,
                                                     ImageCapsule)
         from scae.models.ocae import OCAE
