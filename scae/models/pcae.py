@@ -113,8 +113,10 @@ class PCAE(pl.LightningModule):
         # labels shape (batch_size)
         img, labels = batch
         ret = self(img, labels, log='train', log_imgs=(batch_idx == 0))
+
         if torch.isnan(ret.loss).any():  # TODO: try grad clipping?
             raise ValueError('loss is nan')
+
         return ret.loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
@@ -122,7 +124,7 @@ class PCAE(pl.LightningModule):
         val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
         with torch.no_grad():
             img, labels = batch
-            ret = self(img, labels, log=f'val{val_set}', log_imgs=(batch_idx == 0))
+            ret = self(img, labels, log=f'val{val_set}', log_imgs=(batch_idx % 10 == 0))
         return ret.loss
 
     def configure_optimizers(self):
