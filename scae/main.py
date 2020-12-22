@@ -1,75 +1,153 @@
 import argparse
 import os
-import wandb
-import torch
+from pathlib import Path
 
-from scae.modules.stacked_capsule_ae import CapsNet
+import wandb
+from easydict import EasyDict
+
+import numpy as np
+import torch
+from torch.utils.data import DataLoader
+from torchvision import transforms
+
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
+import pytorch_lightning.callbacks as cb
+
+from scae.args import parse_args
+
+data_path = Path('data')
+
+norm_3c = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+norm_1c = transforms.Normalize([0.449], [0.226])
 
 def main():
-    parser = argparse.ArgumentParser()
-    # Trainer params
-    parser.add_argument('-b', '--batch_size', type=int, default=128)
-    parser.add_argument('-e', '--num_epochs', type=int, default=150)
-    # Dataset
-    parser.add_argument('--train_data', type=str, default="MNIST")
-    parser.add_argument('--use_augmentation', action="store_true", default=False,
-                        help="If this is true, using data augmentation (CIFAR10)")
-    # Estimator hyperparams
-    est_args = parser.add_argument_group('Estimator hyperparams')
-    est_args.add_argument('--miest_width', type=int, default=1024)
-    est_args.add_argument('--miest_lr', type=float, default=1e-4)
+    args = parse_args()
 
-    enc_args = parser.add_argument_group('Encoder hyperparams')
-    enc_args.add_argument('--encoder_lr', type=float, default=1e-1)
-    enc_args.add_argument('--encoder_weight_decay', type=float, default=1e-4)
+    if args.debug or not args.non_deterministic:
+        np.random.seed(1)
+        torch.manual_seed(1)
+        torch.cuda.manual_seed(1)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
-    # Logging hyperparameters
-    logger_args = parser.add_argument_group('Logger Config')
-    logger_args.add_argument('--name', type=str, default="")
-    logger_args.add_argument('--project', type=str, default='thresholding')
-    logger_args.add_argument('--log_interval', type=int, default=-1, help="Steps per logging")
-    logger_args.add_argument('--save_interval', type=int, default=1, help="Epochs per saving")
+        # torch.set_deterministic(True) # grid_sampler_2d_backward_cuda does not have a deterministic implementation
 
-    hparams = parser.parse_args()
+    if args.debug:
+        torch.autograd.set_detect_anomaly(True)
 
-    if hparams.train_data == "Tiny-ImageNet-C":
-        hparams.num_classes = 200
-    elif hparams.train_data == "cifar10":
-        hparams.num_classes = 10
-    elif hparams.train_data == 'cifar100':
-        hparams.num_classes = 100
+    dataloader_args = EasyDict(batch_size=args.batch_size, shuffle=False,
+                               num_workers=0 if args.debug else args.data_workers)
+    if args.dataset == 'mnist':
+        args.num_classes = 10
+        args.im_channels = 1
+        args.image_size = (40, 40)
+
+        from torchvision.datasets import MNIST
+
+        t = transforms.Compose([
+            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.ToTensor(),
+            # norm_1c
+        ])
+        train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
+                                    **dataloader_args)
+    elif args.dataset == 'usps':
+        args.num_classes = 10
+        args.im_channels = 1
+        args.image_size = (40, 40)
+
+        from torchvision.datasets import USPS
+
+        t = transforms.Compose([
+            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.ToTensor(),
+            # norm_1c
+        ])
+        train_dataloader = DataLoader(USPS(data_path/'usps', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(USPS(data_path/'usps', train=False, transform=t, download=True),
+                                    **dataloader_args)
+    elif args.dataset == 'cifar10':
+        args.num_classes = 10
+        args.im_channels = 3
+        args.image_size = (32, 32)
+
+        from torchvision.datasets import CIFAR10
+
+        t = transforms.Compose([
+            transforms.ToTensor()
+        ])
+        train_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=False, transform=t, download=True),
+                                    **dataloader_args)
+    elif args.dataset == 'svhn':
+        args.num_classes = 10
+        args.im_channels = 3
+        args.image_size = (32, 32)
+
+        from torchvision.datasets import SVHN
+
+        t = transforms.Compose([
+            transforms.ToTensor()
+        ])
+        train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(SVHN(data_path/'svhn', split='test', transform=t, download=True),
+                                    **dataloader_args)
     else:
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    if hparams.pretrain_encoder < 0:
-        hparams.pretrain_encoder = hparams.num_epochs
 
-    hparams.host_name = os.uname()[1]
+    logger = WandbLogger(
+        project=args.log_project,
+        name=args.log_run_name,
+        entity=args.log_team,
+        config=args, offline=not args.log_upload)
 
-    wandb_kwargs = {}
-    peel_args = ['name', 'project']
+    if args.model == 'ccae':
+        from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
+        from scae.models.ccae import CCAE
 
-    for arg in peel_args:
-        val = getattr(hparams, arg, None)
-        wandb_kwargs[arg] = val
+        encoder = SetTransformer()
+        decoder = ConstellationCapsule()
+        model = CCAE(encoder, decoder, args)
 
-    wandb_kwargs['name'] = wandb_kwargs['name'].format(hparams)
-    wandb.init(config=hparams, **wandb_kwargs)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)
+        # logger.watch(decoder, log='all', log_freq=args.log_frequency)
+    elif args.model == 'pcae':
+        from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
+        from scae.models.pcae import PCAE
 
-    print(hparams)
-    print(device)
+        encoder = CapsuleImageEncoder(
+            args.pcae_num_caps, args.pcae_caps_dim, args.pcae_feat_dim,
+            input_channels=args.im_channels)
+        decoder = TemplateImageDecoder(
+            args.pcae_num_caps, use_alpha_channel=args.alpha_channel, output_size=args.image_size,
+            n_channels=args.im_channels)
+        model = PCAE(encoder, decoder, args)
 
-    dataset =
+        logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)
+        logger.watch(decoder, log='all', log_freq=args.log_frequency)
+    elif args.model == 'ocae':
+        from scae.modules.object_capsule_ae import SetTransformer, ImageCapsule
+        from scae.models.ocae import OCAE
 
-    encoder = model.SingleBottleneck(hparams)
-    discriminator = D.CMIEstimator(hparams)
+        encoder = SetTransformer()
+        decoder = ImageCapsule()
+        model = OCAE(encoder, decoder, args)
 
-    model = CapsNet(hparams, device)
+        #  TODO: after ccae
+    else:
+        raise NotImplementedError()
 
-    model.train(dataset)
-
+    # Execute Experiment
+    lr_logger = cb.LearningRateMonitor(logging_interval='step')
+    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger, callbacks=[lr_logger])
+    trainer.fit(model, train_dataloader, val_dataloader)
 
 if __name__ == "__main__":
     main()
-

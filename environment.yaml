@@ -1,0 +1,12 @@
+name: scae
+dependencies:
+  - python=3.9
+  - pip=20.2.4
+  - pip:
+    - easydict==1.9
+    - torch==1.7.1
+    - torchvision==0.8.2
+    - pytorch_lightning==1.1.1
+    - torch-optimizer==0.0.1a17
+    - scipy==1.5.4
+    - wandb==0.10.12
