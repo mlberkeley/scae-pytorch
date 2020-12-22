@@ -46,13 +46,15 @@ class CapsuleImageEncoder(nn.Module):
                feat_dim=16,
                noise_scale=4.,
                similarity_transform=False,
-               input_channels=1):
+               input_channels=1,
+               inverse_space_transform=True):
         super(CapsuleImageEncoder, self).__init__()
         self._n_caps = n_caps
         self._caps_dim = caps_dim
         self._feat_dim = feat_dim
         self._noise_scale = noise_scale
         self._similarity_transform = similarity_transform
+        self._inverse_space_transforms = inverse_space_transform
 
         # Image embedding encoder
         channels = [input_channels, 128, 128, 128, 128]
@@ -82,7 +84,8 @@ class CapsuleImageEncoder(nn.Module):
         poses, features, presence_logits = preds.split(self._splits, dim=-1)
 
         # Tensor of shape (batch_size, self._n_caps, 6)
-        poses = math_utils.geometric_transform(poses, self._similarity_transform)
+        poses = math_utils.geometric_transform(poses, self._similarity_transform,
+                                               inverse=self._inverse_space_transforms)
 
         if self._feat_dim == 0:
             features = None
@@ -159,7 +162,7 @@ class TemplateImageDecoder(nn.Module):
         else:
             self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
 
-        self.templates = torch.nn.Parameter(self._template_nonlin(ts * 2), requires_grad=True)
+        self.templates = torch.nn.Parameter(ts * 2, requires_grad=True)
 
     def forward(self, poses, presences=None):
         """
@@ -180,7 +183,8 @@ class TemplateImageDecoder(nn.Module):
         # templates             shape             (self._n_caps, n_dims, self._template_size)
         # template_stack        shape (batch_size* self._n_caps, n_dims, self._template_size)
         # transformed_templates shape (batch_size, self._n_caps, n_dims, self._output_size)
-        template_stack = self.templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
+        templates = self._template_nonlin(self.templates)
+        template_stack = templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
         transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
 
         bg_value = torch.sigmoid(self.bg_value)
@@ -211,7 +215,7 @@ class TemplateImageDecoder(nn.Module):
         mixture_pdf = math_utils.MixtureDistribution(mixture_logits, mixture_means)
 
         return EasyDict(
-            raw_templates=self.templates,
+            raw_templates=templates,
             mixture_means=mixture_means,
             mixture_logits=mixture_logits,
             pdf=mixture_pdf,

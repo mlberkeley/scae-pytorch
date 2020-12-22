@@ -140,7 +140,8 @@ def main():
 
         encoder = CapsuleImageEncoder(
             args.pcae_num_caps, args.pcae_caps_dim, args.pcae_feat_dim,
-            input_channels=args.im_channels)
+            input_channels=args.im_channels,
+            inverse_space_transform=(not args.pcae_no_inverse_space_transform))
         decoder = TemplateImageDecoder(
             args.pcae_num_caps, use_alpha_channel=args.alpha_channel, output_size=args.image_size,
             n_channels=args.im_channels)

@@ -124,7 +124,7 @@ class PCAE(pl.LightningModule):
             lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
         elif self.args.pcae_lr_scheduler == 'cosrestarts':
             scheduler_step = 'step'
-            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*8)
+            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, self.args.pcae_lr_restart_interval)
         else:
             raise NotImplementedError
 
