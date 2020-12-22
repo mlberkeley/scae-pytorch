@@ -77,8 +77,10 @@ class PCAE(pl.LightningModule):
         if log:
             for k in losses:
                 self.log(f'{log}_{k}', losses[k])
-            for k in losses_scaled:
-                self.log(f'{log}_{k}_scaled', losses[k].detach())
+            # TODO: replace logging of this with grad-magnitude logging
+            #   to understand contribution of each loss independently
+            # for k in losses_scaled:
+            #     self.log(f'{log}_{k}_scaled', losses[k].detach())
             self.log('epoch', self.current_epoch)
 
             # TODO: log caps presences
@@ -95,8 +97,9 @@ class PCAE(pl.LightningModule):
                 mixture_mean_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_means[0])]
                 mixture_logit_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_logits[0])]
 
+                # TODO: proper train / val prefixing
                 self.logger.experiment.log({
-                    'train_imgs': gt_rec_imgs,
+                    'imgs': gt_rec_imgs,
                     'templates': template_imgs,
                     'mixture_means': mixture_mean_imgs,
                     'mixture_logits': mixture_logit_imgs

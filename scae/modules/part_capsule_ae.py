@@ -199,7 +199,10 @@ class TemplateImageDecoder(nn.Module):
             tt_rgb = transformed_templates
 
             temperature = F.softplus(self.temperature_logit + .5) + 1e-4
+            # TODO: why is this improper logit addition good for training?
             tt_logits = tt_rgb / temperature + math_utils.safe_log(presence_probs)
+            # tt_logits = -F.relu(-tt_logits)  # ensure logits are negative
+            # tt_logits = math_utils.safe_log(presence_probs).expand_as(tt_rgb)
             bg_logits = bg_image / temperature
 
         bg_logits = bg_logits.expand(batch_size, 1, self._n_channels, *self._output_size)

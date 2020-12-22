@@ -50,14 +50,10 @@ def main():
             transforms.ToTensor(),
             # norm_1c
         ])
-
-        train_dataset = MNIST(data_path/'mnist', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
-
-        val_dataset = MNIST(data_path/'mnist', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
+                                    **dataloader_args)
     elif args.dataset == 'usps':
         args.num_classes = 10
         args.im_channels = 1
@@ -70,14 +66,10 @@ def main():
             transforms.ToTensor(),
             # norm_1c
         ])
-
-        train_dataset = USPS(data_path/'usps', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
-
-        val_dataset = USPS(data_path/'usps', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        train_dataloader = DataLoader(USPS(data_path/'usps', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(USPS(data_path/'usps', train=False, transform=t, download=True),
+                                    **dataloader_args)
     elif args.dataset == 'cifar10':
         args.num_classes = 10
         args.im_channels = 3
@@ -88,14 +80,10 @@ def main():
         t = transforms.Compose([
             transforms.ToTensor()
         ])
-
-        train_dataset = CIFAR10(data_path/'cifar10', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
-
-        val_dataset = CIFAR10(data_path/'cifar10', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        train_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=False, transform=t, download=True),
+                                    **dataloader_args)
     elif args.dataset == 'svhn':
         args.num_classes = 10
         args.im_channels = 3
@@ -106,14 +94,10 @@ def main():
         t = transforms.Compose([
             transforms.ToTensor()
         ])
-
-        train_dataset = SVHN(data_path/'svhn', split='train', transform=t, download=True)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
-
-        val_dataset = SVHN(data_path/'svhn', split='test', transform=t, download=True)
-        val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(SVHN(data_path/'svhn', split='test', transform=t, download=True),
+                                    **dataloader_args)
     else:
         raise NotImplementedError()
 
@@ -156,7 +140,7 @@ def main():
         decoder = ImageCapsule()
         model = OCAE(encoder, decoder, args)
 
-        #  TODO: after ccae #
+        #  TODO: after ccae
     else:
         raise NotImplementedError()
 
