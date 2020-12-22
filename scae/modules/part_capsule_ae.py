@@ -158,7 +158,7 @@ class TemplateImageDecoder(nn.Module):
         else:
             self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
 
-        self.templates = torch.nn.Parameter(self._template_nonlin(ts * 2), requires_grad=True)
+        self.templates = torch.nn.Parameter(ts * 2, requires_grad=True)
 
     def forward(self, poses, presences=None):
         """
@@ -179,7 +179,8 @@ class TemplateImageDecoder(nn.Module):
         # templates             shape             (self._n_caps, n_dims, self._template_size)
         # template_stack        shape (batch_size* self._n_caps, n_dims, self._template_size)
         # transformed_templates shape (batch_size, self._n_caps, n_dims, self._output_size)
-        template_stack = self.templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
+        templates = self._template_nonlin(self.templates)
+        template_stack = templates.repeat(batch_size, 1, 1, 1)   # TODO: see if auto broadcasting over batch dim works
         transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
 
         bg_value = torch.sigmoid(self.bg_value)
