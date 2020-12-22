@@ -211,7 +211,6 @@ class TemplateImageDecoder(nn.Module):
 
         return EasyDict(
             raw_templates=self.templates,
-            trans_templates=transformed_templates[0],
             mixture_means=mixture_means,
             mixture_logits=mixture_logits,
             pdf=mixture_pdf,

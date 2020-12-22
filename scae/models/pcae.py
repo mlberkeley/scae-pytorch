@@ -47,84 +47,102 @@ class PCAE(pl.LightningModule):
 
         self.args = args
 
-    def forward(self, image):
-        capsules = self.encoder(image)
-        self.logger.experiment.log({'capsule_presence': capsules.presences.detach().cpu()}, commit=False)
-        reconstruction = self.decoder(capsules.poses, capsules.presences)
-        return capsules, reconstruction
+    def forward(self, img, labels=None, log=False, log_imgs=False):
+        batch_size = img.shape[0]
+
+        # Computation:
+        capsules = self.encoder(img)
+
+        rec = self.decoder(capsules.poses, capsules.presences)
+        rec_img = rec.pdf.mean()
+
+        # Loss Calculations:
+        rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
+        temp_l1 = F.relu(self.decoder.templates).mean()
+        rec_mse = self.mse(rec_img, img)
+
+        losses = EasyDict(
+            rec_ll=rec_ll.detach(),
+            temp_l1=temp_l1.detach(),
+            rec_mse=rec_mse.detach()
+        )
+        losses_scaled = EasyDict(
+            rec_ll=-rec_ll * self.args.pcae_loss_ll_coeff,
+            temp_l1=temp_l1 * self.args.pcae_loss_temp_l1_coeff,
+            rec_mse=rec_mse * self.args.pcae_loss_mse_coeff
+        )
+        loss = sum([l for l in losses_scaled.values()])
+
+        # Logging:
+        if log:
+            for k in losses:
+                self.log(f'{log}_{k}', losses[k])
+            for k in losses_scaled:
+                self.log(f'{log}_{k}_scaled', losses[k].detach())
+            self.log('epoch', self.current_epoch)
+
+            # TODO: log caps presences
+            # self.logger.experiment.log({'capsule_presence': capsules.presences.detach().cpu()}, commit=False)
+
+            if log_imgs:
+                n = 8
+                gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
+                rec_imgs = [rec_to_wandb_im(rec_img[i], caption='rec_image') for i in range(n)]
+                gt_rec_imgs = [None] * (2 * n)
+                gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
+
+                template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.raw_templates)]
+                mixture_mean_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_means[0])]
+                mixture_logit_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_logits[0])]
+
+                self.logger.experiment.log({
+                    'train_imgs': gt_rec_imgs,
+                    'templates': template_imgs,
+                    'mixture_means': mixture_mean_imgs,
+                    'mixture_logits': mixture_logit_imgs
+                }, commit=False)
+
+        return EasyDict(
+            loss=loss,
+            capsules=capsules,
+            reconstruction=rec
+        )
 
     def training_step(self, batch, batch_idx):
         # img    shape (batch_size, C, H, W)
         # labels shape (batch_size)
         img, labels = batch
-        batch_size = img.shape[0]
-
-        capsules, rec = self(img)
-        rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
-        self.log('rec_log_likelihood', rec_ll, prog_bar=True)
-
-        temp_l1 = F.relu(self.decoder.templates).mean()
-        self.log('temp_l1', temp_l1.detach(), prog_bar=True)
-
-        rec_mse = self.mse(rec.pdf.mean(), img)
-        self.log('rec_mse', rec_mse.detach(), prog_bar=True)
-
-        losses = EasyDict(
-            rec_log_likelihood=rec_ll,
-            temp_l1=temp_l1,
-            rec_mse=rec_mse
-        )
-
-        if batch_idx == 100:  # % 10 == 0:
-            n = 8
-            gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
-            rec_imgs = [rec_to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
-            gt_rec_imgs = [None]*(2*n)
-            gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
-
-            trans_template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.trans_templates)]
-            template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.raw_templates)]
-            mixture_mean_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_means[0])]
-            mixture_logit_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_logits[0])]
-
-            self.logger.experiment.log({
-                'train_imgs': gt_rec_imgs,
-                'templates': template_imgs,
-                'trans_templates': trans_template_imgs, # todo(maximsmol): typo
-                'mixture_means': mixture_mean_imgs,
-                'mixture_logits': mixture_logit_imgs,
-                'epoch': self.current_epoch},
-                commit=False)
-
-        loss = -rec_ll * self.args.pcae_loss_ll_coeff + \
-               temp_l1 * self.args.pcae_loss_temp_l1_coeff + \
-               rec_mse * self.args.pcae_loss_mse_coeff
-
-        if torch.isnan(loss).any():  # TODO: try grad clipping?
+        ret = self(img, labels, log='train', log_imgs=(batch_idx == 0))
+        if torch.isnan(ret.loss).any():  # TODO: try grad clipping?
             raise ValueError('loss is nan')
+        return ret.loss
 
-        return loss
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
+        # TODO: add val sets list
+        val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
+        with torch.no_grad():
+            img, labels = batch
+            ret = self(img, labels, log=f'val{val_set}', log_imgs=(batch_idx == 0))
+        return ret.loss
 
     def configure_optimizers(self):
+        param_sets = [
+            {'params': self.encoder.parameters()},
+            {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
+        ]
         if self.args.pcae_optimizer == 'sgd':
-            opt = torch.optim.SGD([
-                {'params': self.encoder.parameters()},
-                {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
-            ], lr=self.lr, weight_decay=self.weight_decay)
+            opt = torch.optim.SGD(param_sets, lr=self.lr, weight_decay=self.weight_decay)
         elif self.args.pcae_optimizer == 'radam':
-            opt = optim.RAdam([
-                {'params': self.encoder.parameters()},
-                {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
-            ], lr=self.lr, weight_decay=self.weight_decay)
+            opt = optim.RAdam(param_sets, lr=self.lr, weight_decay=self.weight_decay)
         else:
             raise NotImplementedError()
 
         if self.args.pcae_lr_scheduler == 'exp':
             scheduler_step = 'epoch'
-            lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+            lr_sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=self.lr_decay)
         elif self.args.pcae_lr_scheduler == 'cosrestarts':
             scheduler_step = 'step'
-            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*4)
+            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*4)  # TODO scale by batch num
         else:
             raise NotImplementedError
 

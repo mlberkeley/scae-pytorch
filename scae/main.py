@@ -42,13 +42,12 @@ def main():
             transforms.ToTensor()
         ])
 
-        train_dataset = MNIST('data', train=True, transform=t, download=True)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
-
-        val_dataset = MNIST('data', train=False, transform=t, download=True)
-        val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+        dataloader_args = EasyDict(batch_size=args.batch_size, shuffle=False,
+                                   num_workers=0 if args.debug else args.data_workers)
+        train_dataloader = DataLoader(MNIST('data', train=True, transform=t, download=True),
+                                      **dataloader_args)
+        val_dataloader = DataLoader(MNIST('data', train=False, transform=t, download=True),
+                                    **dataloader_args)
     else:
         raise NotImplementedError()
 
@@ -58,7 +57,6 @@ def main():
         name=args.log_run_name,
         entity=args.log_team,
         config=args, offline=not args.log_upload)
-
 
     if args.model == 'ccae':
         from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
@@ -97,7 +95,7 @@ def main():
     # Execute Experiment
     lr_logger = cb.LearningRateMonitor(logging_interval='step')
     trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger, callbacks=[lr_logger])
-    trainer.fit(model, train_dataloader)
+    trainer.fit(model, train_dataloader, val_dataloader)
 
 if __name__ == "__main__":
     main()
