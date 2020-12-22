@@ -49,7 +49,11 @@ class PCAE(pl.LightningModule):
 
     def forward(self, image):
         capsules = self.encoder(image)
-        self.logger.experiment.log({'capsule_presence': capsules.presences.detach().cpu()}, commit=False)
+
+        presences = capsules.presences.detach().cpu()
+        self.logger.experiment.log({'capsule_presence': presences}, commit=False)
+        self.logger.experiment.log({'capsule_presence_thres': (presences > .1).sum(dim=-1)}, commit=False)
+
         reconstruction = self.decoder(capsules.poses, capsules.presences)
         return capsules, reconstruction
 
@@ -69,14 +73,13 @@ class PCAE(pl.LightningModule):
         rec_mse = self.mse(rec.pdf.mean(), img)
         self.log('rec_mse', rec_mse.detach(), prog_bar=True)
 
-        if batch_idx == 100: #% 10 == 0:
+        if batch_idx == 10: #% 10 == 0:
             n = 8
             gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
             rec_imgs = [rec_to_wandb_im(rec.pdf.mean(idx=i), caption='rec_image') for i in range(n)]
             gt_rec_imgs = [None]*(2*n)
             gt_rec_imgs[::2], gt_rec_imgs[1::2] = gt_imgs, rec_imgs  # interweave
 
-            trans_template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.trans_templates)]
             template_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.raw_templates)]
             mixture_mean_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_means[0])]
             mixture_logit_imgs = [to_wandb_im(t, caption=f'tmp_{i}') for i, t in enumerate(rec.mixture_logits[0])]
@@ -84,7 +87,6 @@ class PCAE(pl.LightningModule):
             self.logger.experiment.log({
                 'train_imgs': gt_rec_imgs,
                 'templates': template_imgs,
-                'trans_templates': trans_template_imgs, # todo(maximsmol): typo
                 'mixture_means': mixture_mean_imgs,
                 'mixture_logits': mixture_logit_imgs,
                 'epoch': self.current_epoch},
@@ -122,7 +124,7 @@ class PCAE(pl.LightningModule):
             lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
         elif self.args.pcae_lr_scheduler == 'cosrestarts':
             scheduler_step = 'step'
-            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*4)
+            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*8)
         else:
             raise NotImplementedError
 
