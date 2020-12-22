@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument(
         '--dataset',
         type=str.lower, default='mnist',
-        choices=['mnist'])
+        choices=['mnist', 'usps', 'cifar10', 'svhn'])
     parser.add_argument(
         '--data-workers',
         type=int, default=len(os.sched_getaffinity(0)),

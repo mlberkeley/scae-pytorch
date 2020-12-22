@@ -45,7 +45,8 @@ class CapsuleImageEncoder(nn.Module):
                caps_dim=6,
                feat_dim=16,
                noise_scale=4.,
-               similarity_transform=False):
+               similarity_transform=False,
+               input_channels=1):
         super(CapsuleImageEncoder, self).__init__()
         self._n_caps = n_caps
         self._caps_dim = caps_dim
@@ -54,7 +55,7 @@ class CapsuleImageEncoder(nn.Module):
         self._similarity_transform = similarity_transform
 
         # Image embedding encoder
-        channels = [1, 128, 128, 128, 128]
+        channels = [input_channels, 128, 128, 128, 128]
         strides = [2, 2, 1, 1]
         layers = []
         for i in range(4):
@@ -201,7 +202,7 @@ class TemplateImageDecoder(nn.Module):
             tt_logits = tt_rgb / temperature + math_utils.safe_log(presence_probs)
             bg_logits = bg_image / temperature
 
-        bg_logits = bg_logits.expand(batch_size, 1, 1, *self._output_size)
+        bg_logits = bg_logits.expand(batch_size, 1, self._n_channels, *self._output_size)
         # TODO: add template colorization from features
 
         # mixture_logits shape (batch_size, self._n_caps + 1, self._n_channels, self._output_size)

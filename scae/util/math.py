@@ -48,9 +48,10 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
     trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(1, dim=-1)
 
     if nonlinear:
+        k = 0.5
         # TODO: use analytically computed trans rescaling or move it out of this method
-        trans_xs = torch.tanh(trans_xs / 10 * 5.)
-        trans_ys = torch.tanh(trans_ys / 10 * 5.)
+        trans_xs = torch.tanh(trans_xs * k)
+        trans_ys = torch.tanh(trans_ys * k)
         scale_xs = torch.sigmoid(scale_xs) + 1e-2
         scale_ys = torch.sigmoid(scale_ys) + 1e-2
         shears = torch.tanh(shears * 5.)

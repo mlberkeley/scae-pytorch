@@ -83,7 +83,7 @@ class PCAE(pl.LightningModule):
 
             # TODO: log caps presences
             # self.logger.experiment.log({'capsule_presence': capsules.presences.detach().cpu()}, commit=False)
-
+            # self.logger.experiment.log({'capsule_presence_thres': (capsules.presences > .1).sum(dim=-1)}, commit=False)
             if log_imgs:
                 n = 8
                 gt_imgs = [to_wandb_im(img[i], caption='gt_image') for i in range(n)]
@@ -144,7 +144,7 @@ class PCAE(pl.LightningModule):
             lr_sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=self.lr_decay)
         elif self.args.pcae_lr_scheduler == 'cosrestarts':
             scheduler_step = 'step'
-            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*4)  # TODO scale by batch num
+            lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*8)  # TODO scale by batch num
         else:
             raise NotImplementedError
 
