@@ -133,7 +133,7 @@ Logger Parameters:
 
 ### Encoder
 
-*Input:* pixel data
+*Input:* pixel data\
 *Output:* capsule outputs (pose, presence, and features) for a set of parts
 
 *Note:* primary work done by a classical CNN. Capsule structure imposed only by the treatment of the output values
@@ -144,7 +144,7 @@ Logger Parameters:
 
 ### Decoder
 
-*Input:* capsule outputs (pose, presence, and features) for a set of parts
+*Input:* capsule outputs (pose, presence, and features) for a set of parts\
 *Output:* distribution that encodes the likelihood of a given reconstruction, which is optimized to make the input image maximally likely
 
 *Note:* internally learns a set of templates (small images) that are used for the reconstruction. These are used in all the visualizations
