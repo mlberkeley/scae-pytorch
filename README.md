@@ -106,6 +106,42 @@ Logger Parameters:
                         logging frequency (default: 1)
 ```
 
+# Architecture Summary
+
+## Terminology
+
+*Part* • abstract notion of a base level (see Object) image component, *does not refer to pixel data*
+
+*Template* • pixel data for a Part (learned in the PCAE decoder)
+
+*Object* • a hierarchical parent for Parts (learned in the OCAE)
+
+## Part Capsule Autoencoder (PCAE) [`part_capsule_ae.py`](scae/modules/part_capsule_ae.py)
+
+![PCAE architecture](images/pcae.png)
+
+**Encoder:**
+
+*Input:* pixel data
+
+*Output:* capsule outputs (pose, presence, and features) for a set of parts
+
+*Note:* primary work done by a classical CNN. Capsule structure imposed only by the treatment of the output values
+
+Small CNN (`self._encoder`) learns features over the input pixel data, which is passed to a self-attention layer (`self._attn`) that produces `self._n_caps` capsule outputs, each containing a pose (transformation parameters, see `geometric_transform` from [`math.py`](scae/util/math.py)), presence logit, and a feature vector (an abstract embedding of the part, encoding all necessary parameters other than pose and presence).
+
+**Decoder:**
+
+*Input:* capsule outputs (pose, presence, and features) for a set of parts
+
+*Output:* distribution that encodes the likelihood of a given reconstruction, which is optimized to make the input image maximally likely
+
+*Note:* internally learns a set of templates (small images) that are used for the reconstruction. These are used in all the visualizations
+
+*Note:* the decoder is **probabilistic** it does not come up with a single reconstruction, but rather with a function from part parameters to the probability of creating any given image from them
+
+A set of templates (`self.templates`) is transformed using the poses learned in the encoder using [`nn.functional.affine_grid`](https://pytorch.org/docs/stable/nn.functional.html#torch.nn.functional.affine_grid), then combined to form a distribution over potential reconstructions (see `MixtureDistribution` from [`math.py`](scae/util/math.py)) using the presence logits from the encoder.
+
 # Capsules and Semantic Meaning
 
 ## Background
