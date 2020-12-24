@@ -1,7 +1,12 @@
 Table of Contents
 =================
+* [Table of Contents](#table-of-contents)
 * [Stacked Capsule Autoencoders (SCAE) in PyTorch](#stacked-capsule-autoencoders-scae-in-pytorch)
 * [Results](#results)
+* [Usage](#usage)
+* [Architecture Summary](#architecture-summary)
+  * [Terminology](#terminology)
+  * [Part Capsule Autoencoder (PCAE)](#part-capsule-autoencoder-pcae-part_capsule_aepy)
 * [Capsules and Semantic Meaning](#capsules-and-semantic-meaning)
   * [Background](#background)
   * [Capsules](#capsules)
@@ -21,6 +26,9 @@ The official implementation uses Tensorflow 1, Sonnet (for TF1), and relies on p
 ![Templates, transformed templates, and reconstruction example](images/combined_colored.png)
 
 [Weights and Biases project](https://wandb.ai/mlatberkeley/semantic-convolutions) hosting runs of both the original Google Research implementation and this Torch port.
+
+- [MNIST run](https://wandb.ai/mlatberkeley/semantic-convolutions/runs/15pg3owa?workspace=user-maximsmol)
+- [USPS run](https://wandb.ai/mlatberkeley/semantic-convolutions/runs/1qqxh2ee?workspace=user-maximsmol)
 
 [Weights and Biases report (TODO)](TODO) and the [research presentation](https://docs.google.com/presentation/d/1_ktv4bS8Qdc8CUtQxB6AQTFscjWJ6ePShul85DHfY40/edit?usp=sharing) contain additional results and analysis.
 
