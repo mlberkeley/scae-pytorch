@@ -200,11 +200,11 @@ The Stacked Capsule Autoencoders paper introduces yet more structure to convolut
 
 # Links
 
-- [Weights and Biases Report (TODO)](TODO) • Analysis of the results and some background information.
-- [Weights and Biases Salon Video](https://www.youtube.com/watch?v=RBLzlX0HHQc) • Summary of the research presenation and Q&A with two of the project members.
-- [Research Presentation](https://docs.google.com/presentation/d/1_ktv4bS8Qdc8CUtQxB6AQTFscjWJ6ePShul85DHfY40/edit?usp=sharing) • Slides for the research presentation.
-- [Weights and Biases Project](https://wandb.ai/mlatberkeley/semantic-convolutions) • Runs of both the original Google Research implementation and this Torch port.
-- [Google Research Implementation](https://github.com/google-research/google-research/tree/master/stacked_capsule_autoencoders) • Reference implementation of the SCAE paper.
+- [Weights and Biases Report (TODO)](TODO) • Analysis of the results and some background information
+- [Weights and Biases Salon Video](https://www.youtube.com/watch?v=RBLzlX0HHQc) • Summary of the research presenation and Q&A with two of the project members
+- [Research Presentation](https://docs.google.com/presentation/d/1_ktv4bS8Qdc8CUtQxB6AQTFscjWJ6ePShul85DHfY40/edit?usp=sharing) • Slides for the research presentation
+- [Weights and Biases Project](https://wandb.ai/mlatberkeley/semantic-convolutions) • Training runs
+- [Google Research Implementation](https://github.com/google-research/google-research/tree/master/stacked_capsule_autoencoders) • Reference implementation of the SCAE paper
 - [SCAE Paper](https://arxiv.org/abs/1906.06818)
 
 # Authors
