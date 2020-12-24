@@ -7,6 +7,7 @@ Table of Contents
 * [Architecture Summary](#architecture-summary)
   * [Terminology](#terminology)
   * [Part Capsule Autoencoder (PCAE)](#part-capsule-autoencoder-pcae-part_capsule_aepy)
+  * [Object Capsule Autoencoder (OCAE)](#object-capsule-autoencoder-ocae-object_capsule_aepy)
 * [Capsules and Semantic Meaning](#capsules-and-semantic-meaning)
   * [Background](#background)
   * [Capsules](#capsules)
@@ -150,6 +151,10 @@ Small CNN (`self._encoder`) learns features over the input pixel data, which is 
 *Note:* the decoder is **probabilistic** it does not come up with a single reconstruction, but rather with a function from part parameters to the probability of creating any given image from them
 
 A set of templates (`self.templates`) is transformed using the poses learned in the encoder using [`nn.functional.affine_grid`](https://pytorch.org/docs/stable/nn.functional.html#torch.nn.functional.affine_grid), then combined to form a distribution over potential reconstructions (see `MixtureDistribution` from [`math.py`](scae/util/math.py)) using the presence logits from the encoder.
+
+## Object Capsule Autoencoder (OCAE) [`object_capsule_ae.py`](scae/modules/object_capsule_ae.py)
+
+![PCAE architecture](images/ocae.png)
 
 # Capsules and Semantic Meaning
 
