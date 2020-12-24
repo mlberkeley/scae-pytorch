@@ -11,6 +11,7 @@ Table of Contents
   * [Background](#background)
   * [Capsules](#capsules)
   * [SCAE](#scae)
+* [Roadmap](#roadmap)
 * [Links](#links)
 * [Authors](#authors)
 * [References](#references)
@@ -175,6 +176,16 @@ Relatively few empirical tests have been done on Capsule Networks, and few Capsu
 ## SCAE
 
 The Stacked Capsule Autoencoders paper introduces yet more structure to convolutional vision models. First, as the name implies, it uses capsules instead of plain convolutions as its basic building block. Second, it uses two separate highly specific autoencoders in tandem to provide classifications. One of these autoencoders learns "parts" of images, which can be used with the affine transformations that the capsules learn to reconstruct the original pixel data. This autoencoder is effecitvely tasked with isolating efficient (i.e. meaningful) elements from pixel data, which is easily semantically interpretable as humans naturally isolate and label parts of objects in a scene. The second autoencoder learns relations and connections between parts and produces objects as combinations of said parts. Specific objects then correspond to specific output classes. This autoencoder provides an additional loss component to the Part Autoencoder that theoretically induces even more semantic meaning in the parts, and then creates explicit relations between parts in an image.
+
+# Roadmap
+
+- Fix the `loss=NaN` crash after training for a while
+- Finish the OCAE implementation
+- Implement CCAE for fun
+- Get PCAE to work on color datasets
+- Try better CNNs in the PCAE encoder
+- Try deeper capsule nets
+- Cleanup
 
 # Links
 
