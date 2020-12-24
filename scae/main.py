@@ -52,11 +52,11 @@ def main():
 
         train_dataset = MNIST(data_path/'mnist', train=True, transform=t, download=True)
         train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
 
         val_dataset = MNIST(data_path/'mnist', train=False, transform=t, download=True)
         val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
     elif args.dataset == 'usps':
         args.num_classes = 10
         args.im_channels = 1
@@ -72,11 +72,11 @@ def main():
 
         train_dataset = USPS(data_path/'usps', train=True, transform=t, download=True)
         train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
 
         val_dataset = USPS(data_path/'usps', train=False, transform=t, download=True)
         val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
     elif args.dataset == 'cifar10':
         args.num_classes = 10
         args.im_channels = 3
@@ -90,11 +90,11 @@ def main():
 
         train_dataset = CIFAR10(data_path/'cifar10', train=True, transform=t, download=True)
         train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
 
         val_dataset = CIFAR10(data_path/'cifar10', train=False, transform=t, download=True)
         val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
     elif args.dataset == 'svhn':
         args.num_classes = 10
         args.im_channels = 3
@@ -108,11 +108,11 @@ def main():
 
         train_dataset = SVHN(data_path/'svhn', split='train', transform=t, download=True)
         train_dataloader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
 
         val_dataset = SVHN(data_path/'svhn', split='test', transform=t, download=True)
         val_dataloader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers)
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.data_workers, pin_memory=True)
     else:
         raise NotImplementedError()
 

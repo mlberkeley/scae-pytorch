@@ -64,7 +64,7 @@ def parse_args():
         help='number of feature dimensions per capsule')
     pcae_args.add_argument(
         '--pcae-lr',
-        type=float, default=1e-3,
+        type=float, default=3e-3,
         help='learning rate')
     # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
     pcae_args.add_argument(

@@ -35,6 +35,77 @@ Run either of the following to install the dependencies:
 
 `train.sh` runs training in deterministic mode with reasonable default hyperparameters. It will log to Weights and Biases in offline mode (it will not ask for an API key or upload anything to the website)
 
+```
+usage: scae [-h] [-n BATCH_SIZE] [-N NEPOCHS] [--non-deterministic] [-d] [--model {ccae,pcae,ocae,scae}]
+            [--dataset {mnist,usps,cifar10,svhn}] [--data-workers NWORKERS] [--pcae-num-caps PCAE_NCAPS]
+            [--pcae-caps-dim PCAE_CAPS_DIM] [--pcae-feat-dim PCAE_FEAT_DIM] [--pcae-lr PCAE_LR] [--pcae-lr-decay PCAE_LR_DECAY]
+            [--pcae-lr-restart-interval PCAE_LR_RESTART_INTERVAL] [--pcae-weight-decay PCAE_WEIGHT_DECAY]
+            [--pcae-decoder-lr-coeff PCAE_DECODER_LR_COEFF] [--pcae-optimizer {sgd,radam}] [--pcae-lr-scheduler {exp,cosrestarts}]
+            [--pcae-loss-ll-coeff PCAE_LOSS_LL_COEFF] [--pcae-loss-temp-l1-coeff PCAE_LOSS_TEMP_L1_COEFF]
+            [--pcae-loss-mse-coeff PCAE_LOSS_MSE_COEFF] [--alpha-channel] [--pcae-no-inverse-space-transform] [--ocae-lr OCAE_LR]
+            [--log-run-name LOG_RUN_NAME] [--log-project LOG_PROJECT] [--log-team LOG_TEAM] [--log-upload]
+            [--log-frequency LOG_FREQUENCY]
+
+Training/evaluation/inference script for Stacked Capsule Autoencoders
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -n BATCH_SIZE, --batch-size BATCH_SIZE
+                        number of samples per mini-batch (default: 128)
+  -N NEPOCHS, --num-epochs NEPOCHS
+                        number of epochs (default: 3000)
+  --non-deterministic   allow non-deterministic operations for potentially higher performance (default: False)
+  -d, --debug           enable autograd anomaly detection (default: False)
+  --model {ccae,pcae,ocae,scae}
+                        part of the model to run (default: pcae)
+  --dataset {mnist,usps,cifar10,svhn}
+  --data-workers NWORKERS
+                        number of data loader workers (default: 12)
+
+PCAE Parameters:
+  --pcae-num-caps PCAE_NCAPS
+                        number of capsules (default: 16)
+  --pcae-caps-dim PCAE_CAPS_DIM
+                        number of dimensions per capsule (default: 6)
+  --pcae-feat-dim PCAE_FEAT_DIM
+                        number of feature dimensions per capsule (default: 16)
+  --pcae-lr PCAE_LR     learning rate (default: 0.003)
+  --pcae-lr-decay PCAE_LR_DECAY
+                        learning rate decay (for exp schedule) (default: 0.998)
+  --pcae-lr-restart-interval PCAE_LR_RESTART_INTERVAL
+                        number of steps between warm restarts (for cosrestarts schedule) (default: 4000)
+  --pcae-weight-decay PCAE_WEIGHT_DECAY
+                        weight decay (default: 0.0)
+  --pcae-decoder-lr-coeff PCAE_DECODER_LR_COEFF
+                        decoder learning rate coefficient (default: 1.0)
+  --pcae-optimizer {sgd,radam}
+                        optimizer algorithm (default: radam)
+  --pcae-lr-scheduler {exp,cosrestarts}
+                        learning rate scheduler (default: cosrestarts)
+  --pcae-loss-ll-coeff PCAE_LOSS_LL_COEFF
+                        log-likelihood loss contribution coefficient (default: 1.0)
+  --pcae-loss-temp-l1-coeff PCAE_LOSS_TEMP_L1_COEFF
+                        template L1 norm loss contribution coefficient (default: 0.0)
+  --pcae-loss-mse-coeff PCAE_LOSS_MSE_COEFF
+                        reconstruction MSE loss contribution coefficient (default: 0.0)
+  --alpha-channel       whether to add an alpha channel to the part templates (default: False)
+  --pcae-no-inverse-space-transform
+                        learn part poses in non-inverse transform space (default: False)
+
+OCAE Parameters:
+  --ocae-lr OCAE_LR     learning rate (default: 0.1)
+
+Logger Parameters:
+  --log-run-name LOG_RUN_NAME
+                        W&B run name (default: None)
+  --log-project LOG_PROJECT
+                        W&B project name (default: SCAE)
+  --log-team LOG_TEAM   W&B team name (default: None)
+  --log-upload          upload logs to W&B (default: False)
+  --log-frequency LOG_FREQUENCY
+                        logging frequency (default: 1)
+```
+
 # Capsules and Semantic Meaning
 
 ## Background
