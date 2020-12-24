@@ -24,7 +24,7 @@ The official implementation uses Tensorflow 1, Sonnet (for TF1), and relies on p
 
 [Weights and Biases report (TODO)](TODO) and the [research presentation](https://docs.google.com/presentation/d/1_ktv4bS8Qdc8CUtQxB6AQTFscjWJ6ePShul85DHfY40/edit?usp=sharing) contain additional results and analysis.
 
-This project was featured in a 10-minute block on [Weights and Biases Salon (TODO)](TODO) as part of the ML@B project showcase for Fall 2020. Included is a summary of the research presentation and Q&A with two of our project members.
+This project was featured in a 10-minute block on [Weights and Biases Salon](https://www.youtube.com/watch?v=RBLzlX0HHQc) as part of the ML@B project showcase for Fall 2020. Included is a summary of the research presentation and Q&A with two of our project members.
 
 # Usage
 
@@ -64,8 +64,8 @@ The Stacked Capsule Autoencoders paper introduces yet more structure to convolut
 # Links
 
 - [Weights and Biases Report (TODO)](TODO) • Analysis of the results and some background information.
-- [Weights and Biases Salon Video (TODO)](TODO) • Summary of the research presenation and Q&A with two of the project members.
-- [Research Presentation (TODO)](TODO) • Slides for the research presentation.
+- [Weights and Biases Salon Video](https://www.youtube.com/watch?v=RBLzlX0HHQc) • Summary of the research presenation and Q&A with two of the project members.
+- [Research Presentation](https://docs.google.com/presentation/d/1_ktv4bS8Qdc8CUtQxB6AQTFscjWJ6ePShul85DHfY40/edit?usp=sharing) • Slides for the research presentation.
 - [Weights and Biases Project](https://wandb.ai/mlatberkeley/semantic-convolutions) • Runs of both the original Google Research implementation and this Torch port.
 - [Google Research Implementation](https://github.com/google-research/google-research/tree/master/stacked_capsule_autoencoders) • Reference implementation of the SCAE paper.
 - [SCAE Paper](https://arxiv.org/abs/1906.06818)
