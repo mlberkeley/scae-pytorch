@@ -146,7 +146,10 @@ def main():
 
     # Execute Experiment
     lr_logger = cb.LearningRateMonitor(logging_interval='step')
-    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger, callbacks=[lr_logger])
+    best_checkpointer = cb.ModelCheckpoint(save_top_k=1, monitor='val_rec_ll', filepath=logger.experiment.dir)
+    last_checkpointer = cb.ModelCheckpoint(save_last=True, filepath=logger.experiment.dir)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.num_epochs, logger=logger,
+                         callbacks=[lr_logger, best_checkpointer, last_checkpointer])
     trainer.fit(model, train_dataloader, val_dataloader)
 
 if __name__ == "__main__":

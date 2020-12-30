@@ -47,6 +47,9 @@ class PCAE(pl.LightningModule):
 
         self.args = args
 
+        # TODO: get checkpointing working
+        # self.save_hyperparameters('encoder', 'decoder', 'n_classes', 'args')
+
     def forward(self, img, labels=None, log=False, log_imgs=False):
         batch_size = img.shape[0]
 
@@ -127,7 +130,7 @@ class PCAE(pl.LightningModule):
         val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
         with torch.no_grad():
             img, labels = batch
-            ret = self(img, labels, log=f'val{val_set}', log_imgs=(batch_idx % 10 == 0))
+            ret = self(img, labels, log=f'val{val_set}', log_imgs=(batch_idx % 20 == 0))
         return ret.loss
 
     def configure_optimizers(self):

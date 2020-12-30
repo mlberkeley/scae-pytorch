@@ -205,7 +205,7 @@ class TemplateImageDecoder(nn.Module):
             # tt_logits = math_utils.safe_log(presence_probs).expand_as(tt_rgb)
             bg_logits = bg_image / temperature
 
-        bg_logits = bg_logits.expand(batch_size, 1, self._n_channels, *self._output_size)
+        bg_logits = bg_logits.expand(batch_size, 1, 1, *self._output_size)
         # TODO: add template colorization from features
 
         # mixture_logits shape (batch_size, self._n_caps + 1, self._n_channels, self._output_size)
