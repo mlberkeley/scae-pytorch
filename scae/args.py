@@ -64,29 +64,33 @@ def parse_args():
         help='number of feature dimensions per capsule')
     pcae_args.add_argument(
         '--pcae-lr',
-        type=float, default=1e-4,
+        type=float, default=3e-3,
         help='learning rate')
     # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
     pcae_args.add_argument(
         '--pcae-lr-decay',
         type=float, default=.998,
-        help='learning rate decay')
+        help='learning rate decay (for exp schedule)')
+    pcae_args.add_argument(
+        '--pcae-lr-restart-interval',
+        type=int, default=4000,
+        help='number of steps between warm restarts (for cosrestarts schedule)')
     pcae_args.add_argument(
         '--pcae-weight-decay',
         type=float, default=0.0,
         help='weight decay')
     pcae_args.add_argument(
         '--pcae-decoder-lr-coeff',
-        type=float, default=50.0,
+        type=float, default=1.0,
         help='decoder learning rate coefficient')
     pcae_args.add_argument(
         '--pcae-optimizer',
-        type=str.lower, default='sgd',
+        type=str.lower, default='radam',
         choices=['sgd', 'radam'],
         help='optimizer algorithm')
     pcae_args.add_argument(
         '--pcae-lr-scheduler',
-        type=str.lower, default='exp',
+        type=str.lower, default='cosrestarts',
         choices=['exp', 'cosrestarts'],
         help='learning rate scheduler')
     pcae_args.add_argument(
@@ -95,7 +99,7 @@ def parse_args():
         help='log-likelihood loss contribution coefficient')
     pcae_args.add_argument(
         '--pcae-loss-temp-l1-coeff',
-        type=float, default=0.01,
+        type=float, default=0.0,
         help='template L1 norm loss contribution coefficient')
     pcae_args.add_argument(
         '--pcae-loss-mse-coeff',
@@ -105,6 +109,10 @@ def parse_args():
         '--alpha-channel',
         action='store_true', default=False,
         help='whether to add an alpha channel to the part templates')
+    pcae_args.add_argument(
+        '--pcae-no-inverse-space-transform',
+        action='store_true', default=False,
+        help='learn part poses in non-inverse transform space')
 
 
     ocae_args = parser.add_argument_group('OCAE Parameters')

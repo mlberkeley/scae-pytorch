@@ -46,13 +46,15 @@ class CapsuleImageEncoder(nn.Module):
                feat_dim=16,
                noise_scale=4.,
                similarity_transform=False,
-               input_channels=1):
+               input_channels=1,
+               inverse_space_transform=True):
         super(CapsuleImageEncoder, self).__init__()
         self._n_caps = n_caps
         self._caps_dim = caps_dim
         self._feat_dim = feat_dim
         self._noise_scale = noise_scale
         self._similarity_transform = similarity_transform
+        self._inverse_space_transforms = inverse_space_transform
 
         # Image embedding encoder
         channels = [input_channels, 128, 128, 128, 128]
@@ -82,7 +84,8 @@ class CapsuleImageEncoder(nn.Module):
         poses, features, presence_logits = preds.split(self._splits, dim=-1)
 
         # Tensor of shape (batch_size, self._n_caps, 6)
-        poses = math_utils.geometric_transform(poses, self._similarity_transform)
+        poses = math_utils.geometric_transform(poses, self._similarity_transform,
+                                               inverse=self._inverse_space_transforms)
 
         if self._feat_dim == 0:
             features = None
@@ -215,7 +218,7 @@ class TemplateImageDecoder(nn.Module):
         mixture_pdf = math_utils.MixtureDistribution(mixture_logits, mixture_means)
 
         return EasyDict(
-            raw_templates=self.templates,
+            raw_templates=templates,
             mixture_means=mixture_means,
             mixture_logits=mixture_logits,
             pdf=mixture_pdf,
