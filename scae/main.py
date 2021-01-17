@@ -103,10 +103,10 @@ def main():
 
 
     logger = WandbLogger(
-        project=args.log_project,
-        name=args.log_run_name,
-        entity=args.log_team,
-        config=args, offline=not args.log_upload)
+        project=args.log.project,
+        name=args.log.run_name,
+        entity=args.log.team,
+        config=args, offline=not args.log.upload)
 
     if args.model == 'ccae':
         from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
@@ -122,16 +122,12 @@ def main():
         from scae.modules.part_capsule_ae import CapsuleImageEncoder, TemplateImageDecoder
         from scae.models.pcae import PCAE
 
-        encoder = CapsuleImageEncoder(
-            args.pcae_num_caps, args.pcae_caps_dim, args.pcae_feat_dim,
-            input_channels=args.im_channels)
-        decoder = TemplateImageDecoder(
-            args.pcae_num_caps, use_alpha_channel=args.alpha_channel, output_size=args.image_size,
-            n_channels=args.im_channels)
+        encoder = CapsuleImageEncoder(args)
+        decoder = TemplateImageDecoder(args)
         model = PCAE(encoder, decoder, args)
 
-        logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)
-        logger.watch(decoder, log='all', log_freq=args.log_frequency)
+        logger.watch(encoder._encoder, log='all', log_freq=args.log.frequency)
+        logger.watch(decoder, log='all', log_freq=args.log.frequency)
     elif args.model == 'ocae':
         from scae.modules.object_capsule_ae import SetTransformer, ImageCapsule
         from scae.models.ocae import OCAE

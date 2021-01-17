@@ -32,15 +32,15 @@ def rec_to_wandb_im(x, **kwargs):  # TODO: move to utils
 
 
 class PCAE(pl.LightningModule):
-    def __init__(self, encoder, decoder, args):
+    def __init__(self, encoder, decoder, args: EasyDict):
         super(PCAE, self).__init__()
 
         self.encoder = encoder
         self.decoder = decoder
 
-        self.lr = args.pcae_lr
-        self.lr_decay = args.pcae_lr_decay
-        self.weight_decay = args.pcae_weight_decay
+        self.lr = args.pcae.lr
+        self.lr_decay = args.pcae.lr_decay
+        self.weight_decay = args.pcae.weight_decay
 
         self.n_classes = args.num_classes
         self.mse = nn.MSELoss()
@@ -70,9 +70,9 @@ class PCAE(pl.LightningModule):
             rec_mse=rec_mse.detach()
         )
         losses_scaled = EasyDict(
-            rec_ll=-rec_ll * self.args.pcae_loss_ll_coeff,
-            temp_l1=temp_l1 * self.args.pcae_loss_temp_l1_coeff,
-            rec_mse=rec_mse * self.args.pcae_loss_mse_coeff
+            rec_ll=-rec_ll * self.args.pcae.loss_ll_coeff,
+            temp_l1=temp_l1 * self.args.pcae.loss_temp_l1_coeff,
+            rec_mse=rec_mse * self.args.pcae.loss_mse_coeff
         )
         loss = sum([l for l in losses_scaled.values()])
 
@@ -136,19 +136,19 @@ class PCAE(pl.LightningModule):
     def configure_optimizers(self):
         param_sets = [
             {'params': self.encoder.parameters()},
-            {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae_decoder_lr_coeff}
+            {'params': self.decoder.parameters(), 'lr': self.lr * self.args.pcae.decoder.lr_coeff}
         ]
-        if self.args.pcae_optimizer == 'sgd':
+        if self.args.pcae.optimizer == 'sgd':
             opt = torch.optim.SGD(param_sets, lr=self.lr, weight_decay=self.weight_decay)
-        elif self.args.pcae_optimizer == 'radam':
+        elif self.args.pcae.optimizer == 'radam':
             opt = optim.RAdam(param_sets, lr=self.lr, weight_decay=self.weight_decay)
         else:
             raise NotImplementedError()
 
-        if self.args.pcae_lr_scheduler == 'exp':
+        if self.args.pcae.lr_scheduler == 'exp':
             scheduler_step = 'epoch'
             lr_sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=self.lr_decay)
-        elif self.args.pcae_lr_scheduler == 'cosrestarts':
+        elif self.args.pcae.lr_scheduler == 'cosrestarts':
             scheduler_step = 'step'
             lr_sched = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, 469*8)  # TODO scale by batch num
         else:
