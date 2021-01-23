@@ -54,6 +54,12 @@ def add_pcae_args(parser):
         '--pcae.loss-mse-coeff', type=float,
         help='reconstruction MSE loss contribution coefficient')
     pcae_args.add_argument(
+        '--pcae.loss_pres_l2_sparsity.batch', type=float,
+        help='')
+    pcae_args.add_argument(
+        '--pcae.loss_pres_l2_sparsity.capsules', type=float,
+        help='')
+    pcae_args.add_argument(
         '--pcae.alpha-channel', type=bool,
         help='whether to add an alpha channel to the part templates')
     pcae_args.add_argument(

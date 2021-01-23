@@ -30,19 +30,6 @@ def plot_template_assembly_grid(X):
     fig.show()
 
 
-def print_edict(edict: EasyDict, prefix=''):
-    if not prefix:
-        print(f'# EasyDict object id {id(edict)}')
-    for k in edict:
-        v = edict[k]
-        if isinstance(v, EasyDict):
-            print(f'\n{prefix}{k}:')
-            print_edict(v, prefix=f'  {prefix}')
-        else:
-            print(f'{prefix}{k}: {v}')
-    if not prefix:
-        print()
-
 # with open('scae/save.pkl', 'rb') as input:
 #     capsules_l = pickle.load(input)
 #     rec_l = pickle.load(input)

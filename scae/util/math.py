@@ -3,6 +3,7 @@
 import numpy as np
 import torch.distributions as D
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 
 def normalize(tensor, axis):
@@ -140,3 +141,17 @@ class MixtureDistribution(torch.distributions.Distribution):
         else:
             return (self._means * self.mixing_prob).sum(dim=1)
 
+
+# l2(aggregated_prob - constant)
+def presence_l2_sparsity(presence_prob, num_classes):
+    batch_size, num_caps = presence_prob.shape
+
+    within_example_constant = torch.tensor([float(num_caps) / num_classes]).cuda()
+    between_example_constant = torch.tensor([float(batch_size) / num_classes]).cuda()
+
+    # Reduce over capsules
+    within_example = F.mse_loss(torch.sum(presence_prob, dim=1), within_example_constant) # / batch_size * 2.
+
+    # Reduce over batch
+    between_example = F.mse_loss(torch.sum(presence_prob, dim=0), between_example_constant) # / num_caps * 2.
+    return within_example, between_example

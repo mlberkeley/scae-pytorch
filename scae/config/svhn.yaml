@@ -3,7 +3,7 @@ batch_size: 500
 num_epochs: 300
 
 model: pcae
-dataset: mnist
+dataset: svhn
 
 pcae:
   num_caps: 16
@@ -11,7 +11,7 @@ pcae:
   feat_dim: 16
 
   optimizer: radam
-  lr: 0.01
+  lr: 0.001
   lr_decay: 0.998
   lr_restart_interval: 4000
   lr_scheduler: cosrestarts
@@ -20,17 +20,13 @@ pcae:
   loss_ll_coeff: 1.0
   loss_temp_l1_coeff: 0.01
   loss_mse_coeff: 0.0
-  loss_pres_l2_sparsity:
-    batch: 0
-    capsules: 0
-
 
   encoder:
     noise_scale: 4.
     inverse_space_transform: True
 
   decoder:
-    alpha_channel: False
+    alpha_channel: True
     template_nonlin: sigmoid
     color_nonlin: sigmoid
     template_size: [11, 11]

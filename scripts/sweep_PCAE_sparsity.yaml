@@ -1,0 +1,12 @@
+program: sweep.py
+method: grid
+metric:
+  goal: minimize
+  name: val_rec_mse
+parameters:
+  cfg:
+    value: "scae/config/mnist.yaml"
+  pcae.loss_pres_l2_sparsity.batch:
+    values: [1., .1, .01, 0.]
+  pcae.loss_pres_l2_sparsity.capsules:
+    values: [1., .1, .01, 0.]
