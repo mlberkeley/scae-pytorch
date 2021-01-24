@@ -1,3 +1,4 @@
+
 """
 attention.py
 ~~~~
@@ -58,7 +59,6 @@ class MAB(nn.Module):
 
     def forward(self, Q, K):
         Q = self.fc_q(Q)
-        print(K.shape)
         K, V = self.fc_k(K), self.fc_v(K)
 
         dim_split = self.dim_V // self.num_heads
