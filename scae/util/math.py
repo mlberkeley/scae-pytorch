@@ -10,15 +10,15 @@ def normalize(tensor, axis):
 
 def safe_ce(labels, probs, axis=-1):
     return torch.mean(-torch.sum(labels*safe_log(probs), dim=axis))
-    
+
 def safe_log(tensor, eps=1e-16):
     is_zero = tensor.le(eps)
-    tensor = torch.where(is_zero, torch.ones_like(tensor).to('cuda'), tensor)
-    tensor = torch.where(is_zero, torch.zeros_like(tensor).to('cuda') - 1e8,
+    tensor = torch.where(is_zero, torch.ones_like(tensor).to(tensor.device), tensor)
+    tensor = torch.where(is_zero, torch.zeros_like(tensor).to(tensor.device) - 1e8,
                          torch.log(tensor))
     return tensor
 
-def add_noise(tensor, noise_type, scale):
+def add_noise(tensor, noise_type="uniform", scale=1):
     if noise_type == 'uniform':
         noise = (torch.rand(tensor.shape) - 0.5) * scale
     elif noise_type == 'logistic':
@@ -35,8 +35,7 @@ def add_noise(tensor, noise_type, scale):
     return tensor + noise
 
 
-def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
-                        as_matrix=False, inverse=True):
+def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False, inverse=True):
     """
     Converts parameter tensor into an affine or similarity transform.
     :param pose_tensor: [..., 6] tensor.
@@ -48,10 +47,12 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
     trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(1, dim=-1)
 
     if nonlinear:
-        k = 0.5
-        # TODO: use analytically computed trans rescaling or move it out of this method
+        k = 1/2
         trans_xs = torch.tanh(trans_xs * k)
         trans_ys = torch.tanh(trans_ys * k)
+
+        # trans_xs = torch.tanh(trans_xs * 5.)
+        # trans_ys = torch.tanh(trans_ys * 5.)
         scale_xs = torch.sigmoid(scale_xs) + 1e-2
         scale_ys = torch.sigmoid(scale_ys) + 1e-2
         shears = torch.tanh(shears * 5.)
@@ -65,7 +66,7 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
     if similarity:
         scales = scale_xs
         poses = [scales * cos_thetas, -scales * sin_thetas, trans_xs,
-                 scales * sin_thetas, scales * cos_thetas, trans_ys]
+                scales * sin_thetas, scales * cos_thetas, trans_ys]
     else:
         poses = [
             scale_xs * cos_thetas + shears * scale_ys * sin_thetas,
@@ -78,16 +79,16 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
     poses = torch.cat(poses, -1)  # shape (... , 6)
 
     # Convert poses to 3x3 A matrix so: [y, 1] = A [x, 1]
-    if as_matrix or inverse:
+    if as_3x3 or inverse:
         poses = poses.reshape(*poses.shape[:-1], 2, 3)
-        bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3).cuda()
+        bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3)
         bottom_pad[..., 2] = 1
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
         poses = torch.cat([poses, bottom_pad], dim=-2)
 
     if inverse:
         poses = torch.inverse(poses)
-        if not as_matrix:
+        if not as_3x3:
             poses = poses[..., :2, :]
             poses = poses.reshape(*poses.shape[:-2], 6)
 
