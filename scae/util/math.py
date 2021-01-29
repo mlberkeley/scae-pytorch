@@ -111,7 +111,7 @@ class MixtureDistribution(torch.distributions.Distribution):
 
     @property
     def mixing_log_prob(self):
-        return self._mixing_logits - self._mixing_logits.exp().sum(dim=1, keepdims=True).log()
+        return self._mixing_logits - torch.logsumexp(self._mixing_logits, 1, keepdim=True)
 
     @property
     def mixing_prob(self):
@@ -131,7 +131,7 @@ class MixtureDistribution(torch.distributions.Distribution):
         # multiply probabilities over channels, multiply by mixing probs
         logits = logits.sum(dim=2) + self.mixing_log_prob.sum(dim=2)
         # sum probs over distributions
-        logits = logits.exp().sum(dim=1).log()
+        logits = torch.logsumexp(logits, 1)
         return logits
 
     def mean(self, idx=None):
