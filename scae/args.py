@@ -7,16 +7,16 @@ from easydict import EasyDict
 def add_pcae_args(parser):
     pcae_args = parser.add_argument_group('PCAE Parameters')
     pcae_args.add_argument(
-        '--pcae.num-caps',
+        '--pcae.num_caps',
         type=int, default=16,
         metavar='PCAE_NCAPS',
         help='number of capsules')
     pcae_args.add_argument(
-        '--pcae.caps-dim',
+        '--pcae.caps_dim',
         type=int, default=6,
         help='number of dimensions per capsule')
     pcae_args.add_argument(
-        '--pcae.feat-dim',
+        '--pcae.feat_dim',
         type=int, default=16,
         help='number of feature dimensions per capsule')
     pcae_args.add_argument(
@@ -25,33 +25,33 @@ def add_pcae_args(parser):
         help='learning rate')
     # .998 = 1-(1-.96)**1/20, equiv to .96 every 20 epochs
     pcae_args.add_argument(
-        '--pcae.lr-decay',
+        '--pcae.lr_decay',
         type=float, default=.998,
         help='learning rate decay (for exp schedule)')
     pcae_args.add_argument(
-        '--pcae.lr-restart-interval',
+        '--pcae.lr_restart_interval',
         type=int, default=4000,
         help='number of steps between warm restarts (for cosrestarts schedule)')
     pcae_args.add_argument(
-        '--pcae.weight-decay', type=float,
+        '--pcae.weight_decay', type=float,
         help='weight decay')
     pcae_args.add_argument(
-        '--pcae.decoder-lr-coeff', type=float,
+        '--pcae.decoder_lr_coeff', type=float,
         help='decoder learning rate coefficient')
     pcae_args.add_argument(
         '--pcae.optimizer', type=str.lower, choices=['sgd', 'radam'],
         help='optimizer algorithm')
     pcae_args.add_argument(
-        '--pcae.lr-scheduler', type=str.lower, choices=['exp', 'cosrestarts'],
+        '--pcae.lr_scheduler', type=str.lower, choices=['exp', 'cosrestarts'],
         help='learning rate scheduler')
     pcae_args.add_argument(
-        '--pcae.loss-ll-coeff', type=float,
-        help='log-likelihood loss contribution coefficient')
+        '--pcae.loss_ll_coeff', type=float,
+        help='log_likelihood loss contribution coefficient')
     pcae_args.add_argument(
-        '--pcae.loss-temp-l1-coeff', type=float,
+        '--pcae.loss_temp_l1-coeff', type=float,
         help='template L1 norm loss contribution coefficient')
     pcae_args.add_argument(
-        '--pcae.loss-mse-coeff', type=float,
+        '--pcae.loss_mse_coeff', type=float,
         help='reconstruction MSE loss contribution coefficient')
     pcae_args.add_argument(
         '--pcae.loss_pres_l2_sparsity.batch', type=float,
@@ -60,11 +60,11 @@ def add_pcae_args(parser):
         '--pcae.loss_pres_l2_sparsity.capsules', type=float,
         help='')
     pcae_args.add_argument(
-        '--pcae.alpha-channel', type=bool,
+        '--pcae.alpha_channel', type=bool,
         help='whether to add an alpha channel to the part templates')
     pcae_args.add_argument(
-        '--pcae.inverse-space-transform', type=bool,
-        help='learn part poses in non-inverse transform space')
+        '--pcae.inverse_space_transform', type=bool,
+        help='learn part poses in non_inverse transform space')
 
 
 def add_ocae_args(parser):
@@ -78,8 +78,8 @@ def add_ocae_args(parser):
 def add_log_args(parser):
     log_args = parser.add_argument_group('Logger Parameters')
     log_args.add_argument(
-        '--log.run-name',
-        type=str, default=None,
+        '--log.run_name',
+        type=str, default='',
         help='W&B run name')
     log_args.add_argument(
         '--log.project',
@@ -114,18 +114,18 @@ def parse_args(args=None):
 
     # todo(maximsmol): add inference and evaluation
     parser.add_argument(
-        '-n', '--batch-size',
+        '-n', '--batch_size',
         type=int, default=128,
-        help='number of samples per mini-batch')
+        help='number of samples per mini_batch')
     parser.add_argument(
-        '-N', '--num-epochs',
+        '-N', '--num_epochs',
         type=int, default=300,
         metavar='NEPOCHS',
         help='number of epochs')
     parser.add_argument(
-        '--non-deterministic',
+        '--non_deterministic',
         action='store_true', default=False,
-        help='allow non-deterministic operations for potentially higher performance')
+        help='allow non_deterministic operations for potentially higher performance')
     parser.add_argument(
         '-d', '--debug',
         action='store_true', default=False,
@@ -141,7 +141,7 @@ def parse_args(args=None):
         type=str.lower, default='mnist',
         choices=['mnist', 'usps', 'cifar10', 'svhn'])
     parser.add_argument(
-        '--data-workers',
+        '--data_workers',
         type=int, default=len(os.sched_getaffinity(0)),
         metavar='NWORKERS',
         help='number of data loader workers')

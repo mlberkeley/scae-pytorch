@@ -6,7 +6,11 @@ metric:
 parameters:
   cfg:
     value: "scae/config/mnist.yaml"
+  log.run_name:
+    value: "nc{pcae.num_caps} b{pcae.loss_pres_l2_sparsity.batch} c{pcae.loss_pres_l2_sparsity.capsules}"
+  pcae.num_caps:
+    values: [4, 8]
   pcae.loss_pres_l2_sparsity.batch:
-    values: [1., .1, .01, 0.]
+    values: [.01, 0.] # 1., .1 too large
   pcae.loss_pres_l2_sparsity.capsules:
     values: [1., .1, .01, 0.]

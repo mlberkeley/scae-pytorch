@@ -101,12 +101,14 @@ def main():
     else:
         raise NotImplementedError()
 
-
+    if '{' in args.log.run_name:
+        args.log.run_name = args.log.run_name.format(**args)
     logger = WandbLogger(
         project=args.log.project,
         name=args.log.run_name,
         entity=args.log.team,
-        config=args, offline=not args.log.upload)
+        config=args, offline=not args.log.upload
+    )
 
     if args.model == 'ccae':
         from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
