@@ -75,6 +75,7 @@ class PCAE(pl.LightningModule):
             pres_l2_sparsity_over_capsules=pres_l2_sparsity_over_capsules.detach(),
             pres_l2_sparsity_over_batch=pres_l2_sparsity_over_batch.detach()
         )
+
         losses_scaled = EasyDict(
             rec_ll=-rec_ll * self.args.pcae.loss_ll_coeff,
             temp_l1=temp_l1 * self.args.pcae.loss_temp_l1_coeff,

@@ -107,6 +107,7 @@ class MixtureDistribution(torch.distributions.Distribution):
         self._mixing_logits = mixing_logits
         self._means = means
         self._var = var
+        print("MEANS", means.shape)
         self._distributions = distribution(loc=means, scale=var)
 
     @property
