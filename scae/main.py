@@ -15,7 +15,7 @@ from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning.callbacks as cb
 
 from scae.args import parse_args
-
+from scae.util.filtering import torch_sobel_filter, normalize
 data_path = Path('data')
 
 norm_3c = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -92,7 +92,9 @@ def main():
         from torchvision.datasets import SVHN
 
         t = transforms.Compose([
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Lambda(torch_sobel_filter),
+            transforms.Lambda(normalize)
         ])
         train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
                                       **dataloader_args)
