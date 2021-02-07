@@ -6,7 +6,7 @@ model: pcae
 dataset: svhn
 
 pcae:
-  num_caps: 32
+  num_caps: 16 #32
   caps_dim: 6
   feat_dim: 16
 

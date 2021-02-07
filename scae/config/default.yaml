@@ -5,7 +5,7 @@ debug: False
 data_workers: 4
 
 log:
-  run_name: None
+  run_name:
   project: StackedCapsuleAutoEncoders
   team: mlatberkeley
   upload: True

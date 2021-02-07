@@ -15,7 +15,7 @@ from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning.callbacks as cb
 
 from scae.args import parse_args
-from scae.util.filtering import torch_sobel_filter, normalize
+from scae.util.filtering import sobel_filter
 data_path = Path('data')
 
 norm_3c = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -46,7 +46,7 @@ def main():
         from torchvision.datasets import MNIST
 
         t = transforms.Compose([
-            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor(),
             # norm_1c
         ])
@@ -62,7 +62,7 @@ def main():
         from torchvision.datasets import USPS
 
         t = transforms.Compose([
-            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor(),
             # norm_1c
         ])
@@ -78,6 +78,7 @@ def main():
         from torchvision.datasets import CIFAR10
 
         t = transforms.Compose([
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor()
         ])
         train_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=True, transform=t, download=True),
@@ -92,8 +93,9 @@ def main():
         from torchvision.datasets import SVHN
 
         t = transforms.Compose([
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor(),
-            transforms.Lambda(torch_sobel_filter),
+            transforms.Lambda(sobel_filter),
         ])
         train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
                                       **dataloader_args)
