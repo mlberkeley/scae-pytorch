@@ -94,7 +94,6 @@ def main():
         t = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(torch_sobel_filter),
-            transforms.Lambda(normalize)
         ])
         train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
                                       **dataloader_args)
