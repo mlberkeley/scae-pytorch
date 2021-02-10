@@ -83,6 +83,7 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
         poses = poses.reshape(*poses.shape[:-1], 2, 3)
         bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3)
         bottom_pad[..., 2] = 1
+        bottom_pad = bottom_pad.cuda()
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
         poses = torch.cat([poses, bottom_pad], dim=-2)
 
