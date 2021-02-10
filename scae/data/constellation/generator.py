@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def create(
+def create_constellation(
     batch_size=32,
     subset=None,
     shuffle_corners=True,
