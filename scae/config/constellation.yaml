@@ -1,2 +1,12 @@
-model: ocae
+batch_size: 32
+
+model: ccae
 dataset: constellation
+
+ccae:
+  
+  lr: 0.01  
+  lr_decay: 0.998
+
+  weight_decay: 0.0
+

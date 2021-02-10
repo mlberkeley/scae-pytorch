@@ -26,11 +26,11 @@ class CCAE(pl.LightningModule):
         self.encoder = encoder
         self.decoder = decoder
 
-        self.lr = args.ccae_lr
-        self.lr_decay = args.ccae_lr_decay
-        self.weight_decay = args.ccae_weight_decay
+        self.lr = args.ccae.lr
+        self.lr_decay = args.ccae.lr_decay
+        self.weight_decay = args.ccae.weight_decay
 
-        self.n_classes = args.num_classes
+        # self.n_classes = args.num_classes
         self.mse = nn.MSELoss()
 
     def forward(self, points):

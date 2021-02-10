@@ -15,6 +15,7 @@ from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning.callbacks as cb
 
 from scae.args import parse_args
+from scae.data.constellation import create_constellation
 
 data_path = Path('data')
 
@@ -70,6 +71,24 @@ def main():
                                       **dataloader_args)
         val_dataloader = DataLoader(USPS(data_path/'usps', train=False, transform=t, download=True),
                                     **dataloader_args)
+    elif args.dataset == 'constellation':
+
+        data_gen = create_constellation(
+            batch_size=args.batch_size,
+            shuffle_corners=True,
+            gaussian_noise=.0,
+            drop_prob=0.5,
+            which_patterns=[[0], [1], [0]],
+            rotation_percent=180 / 360.,
+            max_scale=3.,
+            min_scale=3.,
+            use_scale_schedule=False,
+            schedule_steps=0,
+        )
+
+        train_dataloader = DataLoader(data_gen, **dataloader_args)
+        val_dataloader = DataLoader(data_gen, **dataloader_args)
+
     elif args.dataset == 'cifar10':
         args.num_classes = 10
         args.im_channels = 3
@@ -109,11 +128,14 @@ def main():
         config=args, offline=not args.log.upload)
 
     if args.model == 'ccae':
-        from scae.modules.constellation_ae import SetTransformer, ConstellationCapsule
+        from scae.modules.attention import SetTransformer
+        from scae.modules.capsule import CapsuleLayer
         from scae.models.ccae import CCAE
 
-        encoder = SetTransformer()
-        decoder = ConstellationCapsule()
+        encoder = SetTransformer(2)
+        decoder = CapsuleLayer(input_dims=32, n_caps=3, n_caps_dims=2, n_votes=4, n_caps_params=32, n_hiddens=128,
+                           learn_vote_scale=True, deformations=True, noise_type='uniform', noise_scale=4., similarity_transform=False)
+
         model = CCAE(encoder, decoder, args)
 
         # logger.watch(encoder._encoder, log='all', log_freq=args.log_frequency)

@@ -144,6 +144,3 @@ def create_numpy(
                      pattern_id=pattern_ids)
 
     return minibatch
-
-
-create()
