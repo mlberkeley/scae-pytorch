@@ -1,5 +1,3 @@
-from scipy import ndimage
-import numpy as np
 import torch
 import kornia
 from PIL import Image
@@ -21,8 +19,10 @@ def torch_sobel_filter(tensor):
     # raise ZeroDivisionError
     return out.squeeze(0)
 
-def sobel_filter(img):
-    return ndimage.sobel(img)
+def sobel_filter(input: torch.Tensor):
+    output = kornia.filters.spatial_gradient(input.unsqueeze(0)).sum(dim=2).squeeze(0)
+    return output
+
 
 def normalize(tensor):
     med = torch.median(tensor)
