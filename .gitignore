@@ -131,6 +131,6 @@ dmypy.json
 # vi
 .*sw*
 
-/data
+/data/MNIST
 /wandb
 /semantic-convolutions
