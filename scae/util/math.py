@@ -5,18 +5,23 @@ import torch.distributions as D
 import torch
 import torch.nn as nn
 
+
 def normalize(tensor, axis):
     return tensor / (torch.sum(tensor, axis, keepdims=True) + 1e-8)
+
 
 def safe_ce(labels, probs, axis=-1):
     return torch.mean(-torch.sum(labels*safe_log(probs), dim=axis))
 
+
 def safe_log(tensor, eps=1e-16):
     is_zero = tensor.le(eps)
-    tensor = torch.where(is_zero, torch.ones_like(tensor).to(tensor.device), tensor)
+    tensor = torch.where(is_zero, torch.ones_like(
+        tensor).to(tensor.device), tensor)
     tensor = torch.where(is_zero, torch.zeros_like(tensor).to(tensor.device) - 1e8,
                          torch.log(tensor))
     return tensor
+
 
 def add_noise(tensor, noise_type="uniform", scale=1):
     if noise_type == 'uniform':
@@ -44,7 +49,8 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     :param as_matrix: bool; convers the transform to a matrix if True.
     :return: [..., 3, 3] tensor if `as_matrix` else [..., 6] tensor.
     """
-    trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(1, dim=-1)
+    trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(
+        1, dim=-1)
 
     if nonlinear:
         k = 1/2
@@ -66,7 +72,7 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     if similarity:
         scales = scale_xs
         poses = [scales * cos_thetas, -scales * sin_thetas, trans_xs,
-                scales * sin_thetas, scales * cos_thetas, trans_ys]
+                 scales * sin_thetas, scales * cos_thetas, trans_ys]
     else:
         poses = [
             scale_xs * cos_thetas + shears * scale_ys * sin_thetas,
@@ -83,7 +89,7 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
         poses = poses.reshape(*poses.shape[:-1], 2, 3)
         bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3)
         bottom_pad[..., 2] = 1
-        bottom_pad = bottom_pad.cuda()
+        # bottom_pad = bottom_pad.cuda()
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
         poses = torch.cat([poses, bottom_pad], dim=-2)
 
@@ -141,4 +147,3 @@ class MixtureDistribution(torch.distributions.Distribution):
             return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0)
         else:
             return (self._means * self.mixing_prob).sum(dim=1)
-

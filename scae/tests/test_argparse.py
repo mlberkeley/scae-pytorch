@@ -2,7 +2,7 @@ import unittest
 from easydict import EasyDict
 
 from scae.args import parse_args
-from util.vis import print_edict
+from scae.util.vis import print_edict
 
 
 class TestCase(unittest.TestCase):

@@ -48,19 +48,9 @@ class CapsuleLayer(nn.Module):
 
     def build(self):
 
-        self.mlp_design = []
-        shape_list = [self.input_dims,
-                      self._n_hiddens, self._n_caps_params]
-        for i in range(1, len(shape_list)):
-            self.mlp_design.append(nn.Linear(shape_list[i-1], shape_list[i]))
-            self.mlp_design.append(nn.ReLU())
-
-        # Each capsule gets an independent MLP
-        self.mlp = [nn.Sequential(*self.mlp_design)
-                    for i in range(self._n_caps)]
-
         self.caps_mlp_design = []
         shape_list = [self._n_caps_params+1, self._n_hiddens, self.n_outputs]
+        print(shape_list)
         for i in range(1, len(shape_list)):
             self.caps_mlp_design.append(nn.Linear(shape_list[i-1],
                                                   shape_list[i], bias=False))
@@ -69,24 +59,13 @@ class CapsuleLayer(nn.Module):
                          range(self._n_caps)]
 
     def forward(self, x, parent_transform=None, parent_presence=None):
+
         batch_size = x.shape[0]
-
         batch_shape = [batch_size, self._n_caps]
-        if self._n_caps_params is not None:
 
-            # Obtain feature vector from each capsule
-            split = torch.split(x, 1, 1)
-
-            # Run inference on each feature vector seperately
-            raw_caps_params = [self.mlp[i](x) for i, x in enumerate(split)]
-
-            # TODO: slow - implement cleanest way to run caps_mlp on same list
-            raw_caps_params = torch.cat(raw_caps_params, 1)
-            caps_params = torch.reshape(raw_caps_params,
-                                        batch_shape + [self._n_caps_params])
-        else:
-            assert x.shape[:2].as_list() == batch_shape
-            caps_params = x
+        #
+        # Manually implement dropout by adding layer sampled from Bernoulli.
+        #
 
         if self._caps_dropout_rate == 0.0:
             caps_exist = torch.ones(batch_shape + [1], dtype=torch.float32)
@@ -95,11 +74,26 @@ class CapsuleLayer(nn.Module):
                                         dtype=torch.float32)
             caps_exist = pmf.sample(batch_shape + [1])
 
-        caps_params = torch.cat([caps_params, caps_exist], -1)
+        #
+        # Obtain MLP passes for each capsule individually.
+        #
+
+        caps_params = torch.cat([x, caps_exist], -1)
         split = torch.split(caps_params, 1, 1)
         all_params = [self.caps_mlp[i](x) for i, x in enumerate(split)]
-        all_params = torch.cat(all_params, 1)
-        all_params = torch.split(all_params, self.splits, -1)
+        raw_caps_params = torch.cat(all_params, 1)
+        all_params = torch.split(raw_caps_params, self.splits, -1)
+
+        #
+        # Reshape our capsule outputs into the features we know and love:
+        #   * cpr - "capsule pose relationship?" - pretty sure this is object
+        #            part
+        #   * ccr - "capsule capsule relationship?" - pretty sure this is
+        #            object-viewpoint
+        #   * pres_logit_per_caps - presence probability for capsule.
+        #   * pres_logit_per_vote - presence probaility for vote.
+        #   * scale_per_vote - scale (std dev.) for vote.
+        #
 
         res = [torch.reshape(i, batch_shape + s)
                for (i, s) in zip(all_params, self.output_shapes)]
@@ -108,17 +102,22 @@ class CapsuleLayer(nn.Module):
 
         # ADD BIASES
         # res = [snt.AddBias()(i) for i in res[1:]]
+
         _, ccr, pres_logit_per_caps, pres_logit_per_vote, scale_per_vote = res
 
         if self._caps_dropout_rate != 0.0:
             pres_logit_per_caps += math.safe_log(caps_exist)
 
-        # WTF IS CPR STATIC AND WHY DOES IT EXIST
+        # WTF IS CPR STATIC AND WHY DOES IT EXIST, all 0s...
         cpr_static = torch.zeros(size=[1, self._n_caps, self._n_votes,
                                        self._n_transform_params],
                                  requires_grad=True)
         pres_logit_per_caps = math.add_noise(pres_logit_per_caps)
         pres_logit_per_vote = math.add_noise(pres_logit_per_vote)
+
+        #
+        # Manipulating the ccr (OV) transform.
+        #
 
         if parent_transform is None:
             ccr = math.geometric_transform(ccr, as_3x3=True, similarity=True)
@@ -132,9 +131,15 @@ class CapsuleLayer(nn.Module):
 
         # FIX THIS REPEAT ERROR
         # ccr_per_vote = ccr.repeat((1,1,self._n_votes,1,1))
-        ccr_per_vote = ccr
 
-        votes = torch.matmul(ccr_per_vote, cpr)
+        # votes = torch.matmul(ccr_per_vote, cpr)
+
+        #
+        # The actual composition of object-viewpoint (ccr) and object-part
+        # (cpr) transforms
+        #
+
+        votes = torch.matmul(ccr, cpr)
 
         if parent_presence is not None:
             pres_per_caps = parent_presence
@@ -176,19 +181,24 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         self._scales = scales
         self._vote_presence_prob = vote_presence_prob
         self._pdf = pdf
-        self.build()
 
-    def build(self):
         self.expanded_votes = self._votes.unsqueeze(dim=1)
         self.expanded_scale = self._scales.unsqueeze(dim=1).unsqueeze(dim=-1)
+        print("expanded_votes", self.expanded_votes.shape)
+        print("expanded_scale", self.expanded_scale.shape)
         self.vote_component_pdf = self._get_pdf(self.expanded_votes,
                                                 self.expanded_scale)
         self.mixing_logits = math.safe_log(self._vote_presence_prob)
 
     def forward(self, x, presence=None):
-        self.batch_size, self.n_input_points = x.shape[:2].as_list()
 
-        expanded_x = x.unsqueeze(dim=2)
+        self.batch_size, self.n_input_points = x.shape[0], x.shape[1]
+
+        expanded_x = x.unsqueeze(dim=1)
+
+        print("vote_component_pdf", self.vote_component_pdf)
+        print("expanded_x", expanded_x.shape)
+
         vote_log_prob_per_dim = self.vote_component_pdf.log_prob(expanded_x)
         vote_log_prob = torch.sum(vote_log_prob_per_dim, dim=-1)
         dummy_vote_log_prob = torch.zeros(

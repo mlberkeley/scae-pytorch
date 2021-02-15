@@ -1,4 +1,5 @@
 import numpy as np
+from easydict import EasyDict
 
 
 def create_constellation(
@@ -18,11 +19,10 @@ def create_constellation(
     """Online constellation generator."""
 
     scale = max_scale
-    n_batches = 100
-    n = n_batches * batch_size
-    batch = create_numpy(n, shuffle_corners, gaussian_noise, max_translation,
+    batch = create_numpy(batch_size, shuffle_corners, gaussian_noise, max_translation,
                          rotation_percent, scale, which_patterns, drop_prob)
-    print(batch['pattern_id'])
+
+    return batch
 
 
 def create_numpy(
@@ -139,8 +139,8 @@ def create_numpy(
     min_d, max_d = capsules.min(), capsules.max()
     capsules = (capsules - min_d) / (max_d - min_d + 1e-8) * 2 - 1.
 
-    minibatch = dict(corners=capsules, presence=all_corner_presence,
-                     pattern_presence=all_pattern_presence,
-                     pattern_id=pattern_ids)
+    minibatch = EasyDict(corners=capsules, presence=all_corner_presence,
+                         pattern_presence=all_pattern_presence,
+                         pattern_id=pattern_ids)
 
     return minibatch

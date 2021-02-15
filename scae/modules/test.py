@@ -13,4 +13,4 @@ print(encoded.shape)
 decoder = CapsuleLayer(input_dims=32, n_caps=3, n_caps_dims=2, n_votes=4, n_caps_params=32, n_hiddens=128,
                        learn_vote_scale=True, deformations=True, noise_type='uniform', noise_scale=4., similarity_transform=False)
 
-print(decoder.forward(encoded))
+decoder.forward(encoded)

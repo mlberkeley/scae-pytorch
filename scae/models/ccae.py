@@ -38,21 +38,23 @@ class CCAE(pl.LightningModule):
 
         Additional details here..."""
 
-        capsules = self.encoder(points)
-        reconstruction = self.decoder(capsules.poses, capsules.presences)
-        return capsules, reconstruction
+        h = self.encoder(points)
+        print("capsules: ", h.shape)
+        print("points: ", points.shape)
+        rec = self.decoder(h, points)
+        return h, rec
 
-    def training_step(self, batch, batch_idx):
-        # TODO
-        # Pulled from domas' code
-        pass
+    # def training_step(self, batch, batch_idx):
+    #     # TODO
+    #     # Pulled from domas' code
+    #     pass
 
-    def training_epoch_end(self, outputs):
-        # TODO
-        # Pulled from domas' code
-        pass
+    # def training_epoch_end(self, outputs):
+    #     # TODO
+    #     # Pulled from domas' code
+    #     pass
 
-    def configure_optimizers(self):
-        # TODO
-        # Pulled from domas' code
-        pass
+    # def configure_optimizers(self):
+    #     # TODO
+    #     # Pulled from domas' code
+    #     pass

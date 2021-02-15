@@ -136,7 +136,7 @@ def parse_args(args=None):
         choices=['mnist', 'usps', 'cifar10', 'svhn'])
     parser.add_argument(
         '--data-workers',
-        type=int, default=len(os.sched_getaffinity(0)),
+        type=int, default=os.cpu_count(),
         metavar='NWORKERS',
         help='number of data loader workers')
 
