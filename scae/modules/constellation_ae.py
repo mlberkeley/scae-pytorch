@@ -44,18 +44,17 @@ class ConstellationCapsule(nn.Module):
         # composition. Constructing a two-dimensional vote.
         res.vote = res.vote[..., :-1, -1]
 
-        # Reshape dimensions for constellation specific.
+        # Reshape dimensions for constellation specific use case.
         def pool_dim(x, dim_begin, dim_end):
             combined_shape = list(
                 x.shape[:dim_begin]) + [-1] + list(x.shape[dim_end:])
             return x.view(combined_shape)
 
         for k, v in res.items():
-            print(k, v.shape)
-            if len(v.shape) == 4:
-                print(v.shape)
-                res[k] = pool_dim(v, 1, 2)
-                print(res[k].shape)
+            if k == "vote" or k == "scale":
+                res[k] = pool_dim(v, 1, 3)
+            if k == "vote_presence":
+                res[k] = pool_dim(v, 1, 3)
 
         likelihood = _capsule.OrderInvariantCapsuleLikelihood(self._n_votes,
                                                               res.vote, res.scale,

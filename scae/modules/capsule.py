@@ -75,8 +75,6 @@ class CapsuleLayer(nn.Module):
             caps_exist = pmf.sample(batch_shape + [1])
 
         #
-        # Obtain MLP passes for each capsule individually.
-        #
 
         caps_params = torch.cat([x, caps_exist], -1)
         split = torch.split(caps_params, 1, 1)
@@ -182,31 +180,33 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         self._vote_presence_prob = vote_presence_prob
         self._pdf = pdf
 
+        # Gaussian pdfs generated from our the outputs of our capsules.
         self.expanded_votes = self._votes.unsqueeze(dim=1)
         self.expanded_scale = self._scales.unsqueeze(dim=1).unsqueeze(dim=-1)
-        print("expanded_votes", self.expanded_votes.shape)
         print("expanded_scale", self.expanded_scale.shape)
+        print("expanded_votes", self.expanded_votes.shape)
         self.vote_component_pdf = self._get_pdf(self.expanded_votes,
                                                 self.expanded_scale)
+
         self.mixing_logits = math.safe_log(self._vote_presence_prob)
 
     def forward(self, x, presence=None):
 
         self.batch_size, self.n_input_points = x.shape[0], x.shape[1]
+        expanded_x = x.unsqueeze(dim=2)
 
-        expanded_x = x.unsqueeze(dim=1)
-
-        print("vote_component_pdf", self.vote_component_pdf)
-        print("expanded_x", expanded_x.shape)
-
+        # Calculate log probs for each point/part wrt. a capsules vote.
         vote_log_prob_per_dim = self.vote_component_pdf.log_prob(expanded_x)
         vote_log_prob = torch.sum(vote_log_prob_per_dim, dim=-1)
+
         dummy_vote_log_prob = torch.zeros(
             [self.batch_size, self.n_input_points, 1])
-        dummy_vote_log_prob -= 2. * torch.log(10.)
+        dummy_vote_log_prob -= 2. * math.scalar_log(10.)
         vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 2)
+
         mixing_logits = math.safe_log(self._vote_presence_prob)
-        dummy_logit = torch.zeros([self.batch_size, 1]) - 2. * torch.log(10.)
+        dummy_logit = torch.zeros(
+            (self.batch_size, 1)) - 2. * math.scalar_log(10.)
         mixing_logits = torch.cat([mixing_logits, dummy_logit], 1)
 
         mixing_log_prob = mixing_logits - torch.logsumexp(mixing_logits, dim=1,
@@ -231,10 +231,12 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         # [B, n_points]
         winning_vote_idx = torch.argmax(
             posterior_mixing_logits_per_point[:, :, :-1], dim=2)
+        print("winning_vote_idx", winning_vote_idx.shape)
 
-        batch_idx = torch.range(self.batch_size,
+        batch_idx = torch.range(0, self.batch_size,
                                 dtype=torch.int64).unsqueeze(dim=-1)
-        batch_idx = batch_idx.tile((1, winning_vote_idx.shape[-1]))
+        batch_idx = torch.tile(batch_idx, (1, winning_vote_idx.shape[-1]))
+
         idx = torch.stack([batch_idx, winning_vote_idx], dim=-1)
         winning_vote = torch.index_select(self._votes, idx)
         winning_pres = torch.index_select(self._vote_presence_prob, idx)

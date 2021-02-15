@@ -4,6 +4,7 @@ import numpy as np
 import torch.distributions as D
 import torch
 import torch.nn as nn
+import math
 
 
 def normalize(tensor, axis):
@@ -12,6 +13,10 @@ def normalize(tensor, axis):
 
 def safe_ce(labels, probs, axis=-1):
     return torch.mean(-torch.sum(labels*safe_log(probs), dim=axis))
+
+
+def scalar_log(scalar):
+    return math.log(scalar)
 
 
 def safe_log(tensor, eps=1e-16):
