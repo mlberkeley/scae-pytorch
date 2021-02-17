@@ -232,13 +232,18 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         winning_vote_idx = torch.argmax(
             posterior_mixing_logits_per_point[:, :, :-1], dim=2)
         print("winning_vote_idx", winning_vote_idx.shape)
+        print("self.batch_size", self.batch_size)
 
-        batch_idx = torch.range(0, self.batch_size,
+        batch_idx = torch.range(1, self.batch_size,
                                 dtype=torch.int64).unsqueeze(dim=-1)
-        batch_idx = torch.tile(batch_idx, (1, winning_vote_idx.shape[-1]))
+        batch_idx = batch_idx.repeat((1, winning_vote_idx.shape[-1]))
 
         idx = torch.stack([batch_idx, winning_vote_idx], dim=-1)
-        winning_vote = torch.index_select(self._votes, idx)
+        print("winning_vote", idx)
+
+        # https://discuss.pytorch.org/t/how-to-do-the-tf-gather-nd-in-pytorch/6445/3
+        winning_vote = self._votes.masked_select(idx.type(torch.ByteTensor))
+        # winning_vote = torch.index_select(self._votes, idx)
         winning_pres = torch.index_select(self._vote_presence_prob, idx)
         vote_presence = torch.gt(mixing_logits[:, :-1],
                                  mixing_logits[:, -1:])
