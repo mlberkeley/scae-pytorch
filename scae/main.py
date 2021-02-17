@@ -93,9 +93,12 @@ def main():
         from torchvision.datasets import SVHN
 
         t = transforms.Compose([
-            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
+
             transforms.ToTensor(),
             transforms.Lambda(sobel_filter),
+            transforms.ToPILImage(),
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
+            transforms.ToTensor(),
         ])
         train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
                                       **dataloader_args)
