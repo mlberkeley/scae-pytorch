@@ -8,6 +8,7 @@ import scae.util.math as math
 import torch.nn.functional as F
 import torch.distributions as D
 import collections
+from easydict import EasyDict
 
 
 class ConstellationCapsule(nn.Module):
@@ -35,7 +36,7 @@ class ConstellationCapsule(nn.Module):
 
     def forward(self, h, x, presence=None):
 
-        batch_size = int(x.shape[0])
+        batch_size, n_input_points = int(x.shape[0]), int(x.shape[0])
         self.vote_shape = [batch_size, self._n_caps, self._n_votes, 6]
 
         res = self.capsule(h)
@@ -60,4 +61,58 @@ class ConstellationCapsule(nn.Module):
                                                               res.vote, res.scale,
                                                               res.vote_presence)
         ll_res = likelihood(x, presence)
-        # print(ll_res)
+
+        #
+        # Mixing KL div.
+        #
+
+        soft_layer = torch.nn.Softmax(dim=1)
+        mixing_probs = soft_layer(ll_res.mixing_logits)
+        prior_mixing_log_prob = math.scalar_log(1. / n_input_points)
+        mixing_kl = mixing_probs * \
+            (ll_res.mixing_log_prob - prior_mixing_log_prob)
+        mixing_kl = torch.mean(torch.sum(mixing_kl, -1))
+
+        #
+        # Sparsity loss.
+        #
+
+        from_capsule = ll_res.is_from_capsule
+
+        # torch implementation of tf.one_hot
+        idx = torch.eye(self._n_caps)
+        wins_per_caps = torch.stack([idx[from_capsule[b].type(
+            torch.LongTensor)] for b in range(from_capsule.shape[0])])
+
+        if presence is not None:
+            wins_per_caps *= torch.expand_dims(presence, -1)
+
+        wins_per_caps = torch.sum(wins_per_caps, 1)
+
+        has_any_wins = torch.gt(wins_per_caps, 0).float()
+        should_be_active = torch.gt(wins_per_caps, 1).float()
+
+        # https://pytorch.org/docs/stable/generated/torch.nn.MultiLabelSoftMarginLoss.html
+        # From math, looks to be same as `tf.nn.sigmoid_cross_entropy_with_logits`.
+
+        # TODO: not rigorous cross-implementation
+        softmargin_loss = torch.nn.MultiLabelSoftMarginLoss()
+        sparsity_loss = softmargin_loss(should_be_active,
+                                        res.pres_logit_per_caps)
+
+        # sparsity_loss = tf.reduce_sum(sparsity_loss * has_any_wins, -1)
+        # sparsity_loss = tf.reduce_mean(sparsity_loss)
+
+        caps_presence_prob = torch.max(
+            torch.reshape(res.vote_presence, [batch_size, self._n_caps, self._n_votes]), 2)
+
+        #
+        # Constructing loss ensemble.
+        #
+
+        return EasyDict(
+            mixing_kl=mixing_kl,
+            sparsity_loss=sparsity_loss,
+            caps_presence_prob=caps_presence_prob,
+            mean_scale=torch.mean(res.scale)
+        )

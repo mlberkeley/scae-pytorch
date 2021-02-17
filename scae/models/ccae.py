@@ -39,10 +39,8 @@ class CCAE(pl.LightningModule):
         Additional details here..."""
 
         h = self.encoder(points)
-        print("capsules: ", h.shape)
-        print("points: ", points.shape)
         rec = self.decoder(h, points)
-        return h, rec
+        return rec
 
     # def training_step(self, batch, batch_idx):
     #     # TODO

@@ -1,12 +1,13 @@
+from collections import OrderedDict
+import collections
+import torch.distributions as D
+import torch.nn.functional as F
+import scae.util.math as math
 import numpy as np
 import torch.nn as nn
 import torch
 from attrdict import AttrDict
-import scae.util.math as math
-import torch.nn.functional as F
-import torch.distributions as D
-import collections
-from collections import OrderedDict
+from easydict import EasyDict
 
 
 class CapsuleLayer(nn.Module):
@@ -183,8 +184,6 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         # Gaussian pdfs generated from our the outputs of our capsules.
         self.expanded_votes = self._votes.unsqueeze(dim=1)
         self.expanded_scale = self._scales.unsqueeze(dim=1).unsqueeze(dim=-1)
-        print("expanded_scale", self.expanded_scale.shape)
-        print("expanded_votes", self.expanded_votes.shape)
         self.vote_component_pdf = self._get_pdf(self.expanded_votes,
                                                 self.expanded_scale)
 
@@ -231,19 +230,12 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         # [B, n_points]
         winning_vote_idx = torch.argmax(
             posterior_mixing_logits_per_point[:, :, :-1], dim=2)
-        print("winning_vote_idx", winning_vote_idx.shape)
-        print("self.batch_size", self.batch_size)
 
         batch_idx = torch.range(1, self.batch_size,
                                 dtype=torch.int64).unsqueeze(dim=-1)
         batch_idx = batch_idx.repeat((1, winning_vote_idx.shape[-1]))
 
         idx = torch.stack([batch_idx, winning_vote_idx], dim=-1)
-        print("idx", idx)
-
-        # https://discuss.pytorch.org/t/how-to-do-the-tf-gather-nd-in-pytorch/6445/3
-        print(f'self.votes shape {self._votes.shape} and tens: {self._votes}')
-        print(f'idx shape {idx.shape} and tens: {idx}')
 
         # pytorch implementation of tf.gather_nd
         winning_vote = torch.ones(idx.shape)
@@ -260,14 +252,13 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
 
         # the first four votes belong to the square
         is_from_capsule = winning_vote_idx // self._n_votes
-        print(is_from_capsule)
 
         posterior_mixing_probs = F.softmax(
             posterior_mixing_logits_per_point, dim=-1)[..., :-1]
 
         assert winning_vote.shape == x.shape
 
-        return self.OutputTuple(
+        return EasyDict(
             log_prob=mixture_log_prob_per_batch,
             vote_presence=vote_presence.type(torch.FloatTensor),
             winner=winning_vote,
