@@ -239,17 +239,28 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         batch_idx = batch_idx.repeat((1, winning_vote_idx.shape[-1]))
 
         idx = torch.stack([batch_idx, winning_vote_idx], dim=-1)
-        print("winning_vote", idx)
+        print("idx", idx)
 
         # https://discuss.pytorch.org/t/how-to-do-the-tf-gather-nd-in-pytorch/6445/3
-        winning_vote = self._votes.masked_select(idx.type(torch.ByteTensor))
-        # winning_vote = torch.index_select(self._votes, idx)
-        winning_pres = torch.index_select(self._vote_presence_prob, idx)
+        print(f'self.votes shape {self._votes.shape} and tens: {self._votes}')
+        print(f'idx shape {idx.shape} and tens: {idx}')
+
+        # pytorch implementation of tf.gather_nd
+        winning_vote = torch.ones(idx.shape)
+        winning_pres = torch.ones(idx.shape[:-1])
+        for b in range(idx.shape[0]):
+            for v in range(idx.shape[1]):
+                i, j = idx[b, v]
+                i -= 1  # correct batch idx
+                winning_vote[b, v] = self._votes[i, j]
+                winning_pres[b, v] = self._vote_presence_prob[i, j]
+
         vote_presence = torch.gt(mixing_logits[:, :-1],
                                  mixing_logits[:, -1:])
 
         # the first four votes belong to the square
         is_from_capsule = winning_vote_idx // self._n_votes
+        print(is_from_capsule)
 
         posterior_mixing_probs = F.softmax(
             posterior_mixing_logits_per_point, dim=-1)[..., :-1]
