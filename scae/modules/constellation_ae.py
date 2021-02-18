@@ -52,10 +52,13 @@ class ConstellationCapsule(nn.Module):
             return x.view(combined_shape)
 
         for k, v in res.items():
+            print("raw out : ", v.shape)
             if k == "vote" or k == "scale":
                 res[k] = pool_dim(v, 1, 3)
             if k == "vote_presence":
+                print("ROSA PARKS: ", v.shape)
                 res[k] = pool_dim(v, 1, 3)
+                print("ROSA PARKS: ", res[k].shape)
 
         likelihood = _capsule.OrderInvariantCapsuleLikelihood(self._n_votes,
                                                               res.vote, res.scale,
@@ -103,12 +106,14 @@ class ConstellationCapsule(nn.Module):
         # sparsity_loss = tf.reduce_sum(sparsity_loss * has_any_wins, -1)
         # sparsity_loss = tf.reduce_mean(sparsity_loss)
 
-        caps_presence_prob = torch.max(
-            torch.reshape(res.vote_presence, [batch_size, self._n_caps, self._n_votes]), 2)
+        caps_presence_prob = torch.max(torch.reshape(
+            res.vote_presence, [batch_size, self._n_caps, self._n_votes]),
+            2)[0]
 
         #
         # Constructing loss ensemble.
         #
+        print(torch.mean(res.scale))
 
         return EasyDict(
             mixing_kl=mixing_kl,

@@ -60,6 +60,41 @@ class CapsuleLayer(nn.Module):
                          range(self._n_caps)]
 
     def forward(self, x, parent_transform=None, parent_presence=None):
+        """Decodes part parameters from a set of encoded capsule features.
+
+        Part parameters consist of:
+
+            * A presence probability
+            * A scale (standard dev.)
+            * An object-part (OP) transformation matrix
+
+        These parameters are then used to construct a "vote" by composing the
+        OP matrix with the capsule's OV matrix.
+
+        This "vote" is used along with its associated scale and presence
+        probability to generate a likelihood score given a part.
+
+        :param x: A set of capsules (represented as feature vectors)
+            [B, #capsules, 32]
+
+        :returns:
+            :param vote:
+                [B, #capsules, #votes, #OV*OP matrix ie. (3, 3)]
+            :param scale:
+                [B, #capsules, #votes]
+            :param vote_presence:
+                [B, #capsules, #votes]
+            :param pres_logit_per_caps:
+                [B, #capsules]
+            :param pres_logit_per_vote:
+                [B, #capsules, #votes]
+            :param dynamic_weights_l2:
+                [B, #capsules, #votes, 6]
+            :param raw_caps_params:
+                [B, #capsules, 39]
+            :param raw_caps_features:
+                [B, #capsules, 32]
+        """
 
         batch_size = x.shape[0]
         batch_shape = [batch_size, self._n_caps]
@@ -257,6 +292,24 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
             posterior_mixing_logits_per_point, dim=-1)[..., :-1]
 
         assert winning_vote.shape == x.shape
+
+        logging = True
+        if logging:
+            print("mixture_log_prob_per_batch", mixture_log_prob_per_batch,
+                  mixture_log_prob_per_batch.shape)
+            print("vote_presence.type(torch.FloatTensor)",
+                  vote_presence.type(torch.FloatTensor),
+                  vote_presence.type(torch.FloatTensor).shape)
+            print("winning_vote", winning_vote, winning_vote.shape)
+            print("winning_pres", winning_pres, winning_pres.shape)
+            print("is_from_capsule", is_from_capsule)
+            print("mixing_logits", mixing_logits, mixing_logits.shape)
+            print("mixing_log_prob", mixing_log_prob)
+            print("torch.zeros_like(winning_vote)",
+                  torch.zeros_like(winning_vote).shape)
+            print("torch.zeros_like(winning_pres)",
+                  torch.zeros_like(winning_pres).shape)
+            print("posterior_mixing_probs", posterior_mixing_probs.shape)
 
         return EasyDict(
             log_prob=mixture_log_prob_per_batch,
