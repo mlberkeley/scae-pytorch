@@ -225,6 +225,33 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
         self.mixing_logits = math.safe_log(self._vote_presence_prob)
 
     def forward(self, x, presence=None):
+        """Compute the likelihood of a set of parts given some capsule
+        predictions.
+
+        :param x: A set of parts
+            [B, #parts, part_dim]
+
+        :returns:
+            :param mixture_log_prob_per_batch: Summed across batch dimension
+                [1]
+            :param vote_presence:
+                [B, #capsules * #votes]
+            :param winning_vote: The vote, for each part, that maximizes
+                likelihood.
+                [B, #parts, #part_dim]
+            :param winning_pres: The presence associated with winning vote.
+                [B, #parts]
+            :param is_from_capsule: The capsule associated with winning vote.
+                [B, #parts]
+            :param mixing_logits: Raw log probabilites from capsule decoding.
+                [B, #capsules * #votes + 1]
+            :param mixing_log_prob: Proper probabilities - normalized by vote
+                dimension.
+                [B, #capsules * #votes + 1]
+            :param posterior_mixing_probs: Loglikelihoods for a part against
+                all possible votes, weighted by mixing presence, and softmaxed.
+                [B, #parts, #capsules * #votes]
+        """
 
         self.batch_size, self.n_input_points = x.shape[0], x.shape[1]
         expanded_x = x.unsqueeze(dim=2)
@@ -293,24 +320,6 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
 
         assert winning_vote.shape == x.shape
 
-        logging = True
-        if logging:
-            print("mixture_log_prob_per_batch", mixture_log_prob_per_batch,
-                  mixture_log_prob_per_batch.shape)
-            print("vote_presence.type(torch.FloatTensor)",
-                  vote_presence.type(torch.FloatTensor),
-                  vote_presence.type(torch.FloatTensor).shape)
-            print("winning_vote", winning_vote, winning_vote.shape)
-            print("winning_pres", winning_pres, winning_pres.shape)
-            print("is_from_capsule", is_from_capsule)
-            print("mixing_logits", mixing_logits, mixing_logits.shape)
-            print("mixing_log_prob", mixing_log_prob)
-            print("torch.zeros_like(winning_vote)",
-                  torch.zeros_like(winning_vote).shape)
-            print("torch.zeros_like(winning_pres)",
-                  torch.zeros_like(winning_pres).shape)
-            print("posterior_mixing_probs", posterior_mixing_probs.shape)
-
         return EasyDict(
             log_prob=mixture_log_prob_per_batch,
             vote_presence=vote_presence.type(torch.FloatTensor),
@@ -319,9 +328,8 @@ class OrderInvariantCapsuleLikelihood(nn.Module):
             is_from_capsule=is_from_capsule,
             mixing_logits=mixing_logits,
             mixing_log_prob=mixing_log_prob,
-            # TODO(adamrk): this is broken
-            soft_winner=torch.zeros_like(winning_vote),
-            soft_winner_pres=torch.zeros_like(winning_pres),
+            # soft_winner=torch.zeros_like(winning_vote),
+            # soft_winner_pres=torch.zeros_like(winning_pres),
             posterior_mixing_probs=posterior_mixing_probs,
         )
 
