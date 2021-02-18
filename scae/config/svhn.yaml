@@ -34,7 +34,7 @@ pcae:
     color_nonlin: sigmoid
     template_size: [14, 14]
     output_size: [64, 64]
-    lr_coeff: 1.0
+    lr_coeff: 10000000.0
 
 ocae:
   lr: 0.1

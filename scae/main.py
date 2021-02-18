@@ -87,13 +87,12 @@ def main():
                                     **dataloader_args)
     elif args.dataset == 'svhn':
         args.num_classes = 10
-        args.im_channels = 3
+        args.im_channels = 1
         args.image_size = (32, 32)
 
         from torchvision.datasets import SVHN
 
         t = transforms.Compose([
-
             transforms.ToTensor(),
             transforms.Lambda(sobel_filter),
             transforms.ToPILImage(),
