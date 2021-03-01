@@ -38,23 +38,31 @@ def main():
 
     dataloader_args = EasyDict(batch_size=args.batch_size, shuffle=False,
                                num_workers=0 if args.debug else args.data_workers)
-    if args.dataset == 'mnist':
+    if 'mnist' in args.dataset:
         args.num_classes = 10
         args.im_channels = 1
         args.image_size = (40, 40)
 
-        from torchvision.datasets import MNIST
+        if 'objects' in args.dataset:
+            from data.mnist_objects import MNISTObjects
 
-        t = transforms.Compose([
-            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
-            transforms.ToTensor(),
-            # norm_1c
-        ])
-        train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
-                                      **dataloader_args)
-        val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
-                                    **dataloader_args)
-    elif args.dataset == 'usps':
+            dataset = MNISTObjects(data_path, train=True,  )
+            train_dataloader = DataLoader(dataset, **dataloader_args)
+            val_dataloader = DataLoader(MNISTObjects(data_path, train=False),
+                                        **dataloader_args)
+        else:
+            from torchvision.datasets import MNIST
+
+            t = transforms.Compose([
+                transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
+                transforms.ToTensor(),
+                # norm_1c
+            ])
+            train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
+                                          **dataloader_args)
+            val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
+                                        **dataloader_args)
+    elif 'usps' in args.dataset:
         args.num_classes = 10
         args.im_channels = 1
         args.image_size = (40, 40)
@@ -70,7 +78,7 @@ def main():
                                       **dataloader_args)
         val_dataloader = DataLoader(USPS(data_path/'usps', train=False, transform=t, download=True),
                                     **dataloader_args)
-    elif args.dataset == 'cifar10':
+    elif 'cifar10' in args.dataset:
         args.num_classes = 10
         args.im_channels = 3
         args.image_size = (32, 32)
@@ -85,7 +93,7 @@ def main():
                                       **dataloader_args)
         val_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=False, transform=t, download=True),
                                     **dataloader_args)
-    elif args.dataset == 'svhn':
+    elif 'svhn' in args.dataset:
         args.num_classes = 10
         args.im_channels = 1
         args.image_size = (32, 32)
@@ -146,6 +154,11 @@ def main():
         #  TODO: after ccae
     else:
         raise NotImplementedError()
+
+    #
+    if 'mnist' in args.dataset and 'objects' in args.dataset:
+        wandb.log({"dataset_templates": [wandb.Image(i.detach().cpu().numpy(), caption="Label") for i in dataset.data.templates]})
+        wandb.log({"dataset_images": [wandb.Image(i.detach().cpu().numpy(), caption="Label") for i in dataset.data.images[:50]]})
 
     # Execute Experiment
     lr_logger = cb.LearningRateMonitor(logging_interval='step')
