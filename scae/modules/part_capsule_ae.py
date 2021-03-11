@@ -145,7 +145,7 @@ class TemplateImageDecoder(nn.Module):
         else:
             self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
 
-        self.templates = torch.nn.Parameter(ts * 2, requires_grad=True)
+        self.templates = torch.nn.Parameter(ts, requires_grad=True)
 
     def forward(self, poses, presences=None):
         """
