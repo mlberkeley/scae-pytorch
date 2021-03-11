@@ -99,9 +99,8 @@ class MNISTObjects(torch.utils.data.Dataset):
 
     def plot(self, n=10):
         for i in range(n):
-            plt.imshow(self.data.images[i, 0].detach().cpu())
+            plt.imshow(self[i, 0][0].detach().cpu())
             plt.show()
-
 
     def __getitem__(self, item):
         """
@@ -113,7 +112,14 @@ class MNISTObjects(torch.utils.data.Dataset):
             idx = item
         else:
             idx = MNISTObjects.NUM_SAMPLES * 4 // 5 + item
-        return self.data.images[idx], torch.zeros(1, dtype=torch.long)
+        image = self.data.images[idx]
+
+        image = torch.abs(image - image.quantile(.5))
+        i_max = torch.max(image)
+        i_min = torch.min(image)
+        image = torch.div(image - i_min, i_max - i_min + 1e-8)
+
+        return image, torch.zeros(1, dtype=torch.long)
 
     def __len__(self):
         if self.train:
@@ -124,4 +130,4 @@ if __name__ == '__main__':
     # 8 Temp: mlatberkeley/StackedCapsuleAutoEncoders/fm9q1zxd
     # 4 Temp: mlatberkeley/StackedCapsuleAutoEncoders/67lzaiyq
     # MNISTObjects(template_src='mlatberkeley/StackedCapsuleAutoEncoders/fm9q1zxd', num_caps=8)
-    MNISTObjects(template_src='mlatberkeley/StackedCapsuleAutoEncoders/67lzaiyq', num_caps=4, new=True)
+    ds = MNISTObjects(template_src='mlatberkeley/StackedCapsuleAutoEncoders/67lzaiyq', num_caps=4, new=True)
