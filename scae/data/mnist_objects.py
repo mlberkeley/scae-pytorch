@@ -22,7 +22,7 @@ class MNISTObjects(torch.utils.data.Dataset):
 
     def __init__(self, root='data', train=True,
                  template_src='mlatberkeley/StackedCapsuleAutoEncoders/67lzaiyq',
-                 num_caps=4, new=True):
+                 num_caps=4, new=True, aligned=False):
         self.train = train
         self.num_caps = num_caps
         self.file = pth.Path(root) / 'mnist_objects.pkl'
@@ -33,6 +33,8 @@ class MNISTObjects(torch.utils.data.Dataset):
         #     with open(self.file, 'wb') as f:
         #         self._generate(template_src)
         #         pickle.dump(self.data, f)
+
+        self.aligned = aligned
         self._generate(template_src)
         # self.plot(100)
 
@@ -122,9 +124,14 @@ class MNISTObjects(torch.utils.data.Dataset):
     def rand_poses(self, shape, size_ratio):
         trans_xs = (torch.rand(shape).cuda() - .5) * 1
         trans_ys = (torch.rand(shape).cuda() - .5) * 1
-        scale_xs = torch.rand(shape).cuda() * size_ratio * .9 + .1
-        scale_ys = torch.rand(shape).cuda() * size_ratio * .9 + .1
-        thetas = torch.rand(shape).cuda() * 2 * 3.1415
+        if self.aligned:
+            scale_xs = (torch.rand(shape).cuda() * .9 + .1) * size_ratio
+            scale_ys = (torch.rand(shape).cuda() * .9 + .1) * size_ratio
+            thetas = (torch.rand(shape).cuda() - .5) * 3.1415 * (6 / 180)
+        else:
+            scale_xs = torch.rand(shape).cuda() * size_ratio * .9 + .1
+            scale_ys = torch.rand(shape).cuda() * size_ratio * .9 + .1
+            thetas = torch.rand(shape).cuda() * 2 * 3.1415
         shears = torch.zeros(shape).cuda()
         poses = torch.stack([trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears], dim=-1)
         return poses
@@ -132,9 +139,14 @@ class MNISTObjects(torch.utils.data.Dataset):
     def rand_jitter_poses(self, shape):
         trans_xs = (torch.rand(shape).cuda() - .5) * .1
         trans_ys = (torch.rand(shape).cuda() - .5) * .1
-        scale_xs = torch.rand(shape).cuda() * .2 + .9
-        scale_ys = torch.rand(shape).cuda() * .2 + .9
-        thetas = torch.rand(shape).cuda() * 2 * 3.1415 / 60
+        if self.aligned:
+            scale_xs = torch.rand(shape).cuda() * .3 + .85
+            scale_ys = torch.rand(shape).cuda() * .3 + .85
+            thetas = (torch.rand(shape).cuda() - .5) * 3.1415 * (9 / 180)
+        else:
+            scale_xs = torch.rand(shape).cuda() * .2 + .9
+            scale_ys = torch.rand(shape).cuda() * .2 + .9
+            thetas = torch.rand(shape).cuda() * 2 * 3.1415 / 60
         shears = torch.zeros(shape).cuda()
         poses = torch.stack([trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears], dim=-1)
         return poses
