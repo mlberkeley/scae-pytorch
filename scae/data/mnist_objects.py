@@ -54,7 +54,6 @@ class MNISTObjects(torch.utils.data.Dataset):
             while len(valid_part_poses) < MNISTObjects.NUM_CLASSES:
                 presences_shape = (MNISTObjects.NUM_CLASSES, self.num_caps)
                 presences = Bernoulli(.99).sample(presences_shape).float().cuda()
-                # presences = torch.sigmoid((torch.rand(presences_shape).cuda() - .5) * 1)
 
                 part_poses = self.rand_poses((MNISTObjects.NUM_CLASSES, self.num_caps),
                                              size_ratio=args.pcae.decoder.template_size[0] / args.pcae.decoder.output_size[0] / 2)
@@ -63,17 +62,9 @@ class MNISTObjects(torch.utils.data.Dataset):
                 temp_poses = part_poses[..., :2, :]
                 temp_poses = temp_poses.reshape(*temp_poses.shape[:-2], 6)
 
-                # temp_rec = pcae_decoder(temp_poses, presences)
-                # temp_rec_img = temp_rec.pdf.mean()
                 transformed_templates = self.transform_templates(templates, temp_poses)
                 metric = self.overlap_metric(transformed_templates, presences)
                 metric = metric * (presences.bool().unsqueeze(-1) | presences.bool().unsqueeze(-2)).float()
-
-                # from scae.util.vis import plot_image_tensor_2D, plot_image_tensor
-                # plot_image_tensor_2D(transformed_templates)
-                # # plot_image_tensor(transformed_templates.max(dim=1)[0])
-                # plot_image_tensor((transformed_templates.T * presences.T).T.max(dim=1)[0])
-                # # plot_image_tensor(temp_rec_img)
 
                 for i in range(MNISTObjects.NUM_CLASSES):
                     if ((metric[i] == 0) | ((10 < metric[i]) & (metric[i] < 20))).all()\
@@ -85,10 +76,10 @@ class MNISTObjects(torch.utils.data.Dataset):
             presences = torch.stack(valid_presences[:MNISTObjects.NUM_CLASSES])
 
             # Vis final objects
-            temp_poses = part_poses[..., :2, :]
-            temp_poses = temp_poses.reshape(*temp_poses.shape[:-2], 6)
-            transformed_templates = self.transform_templates(templates, temp_poses)
-            plot_image_tensor((transformed_templates.T * presences.T).T.max(dim=1)[0])
+            # temp_poses = part_poses[..., :2, :]
+            # temp_poses = temp_poses.reshape(*temp_poses.shape[:-2], 6)
+            # transformed_templates = self.transform_templates(templates, temp_poses)
+            # plot_image_tensor((transformed_templates.T * presences.T).T.max(dim=1)[0])
 
             # Tensor of shape (batch_size, self._n_caps, 6)
             object_poses = self.rand_poses((MNISTObjects.NUM_SAMPLES, 1), size_ratio=6)
