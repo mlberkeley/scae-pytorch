@@ -15,20 +15,36 @@ def show_img(tensor, min=0, max=1):
     plt.show()
 
 
-def plot_template_assembly_grid(X):
+def plot_image_tensor(X):
     plt.figure()
-    num_plot = 5
-    fig, ax = plt.subplots(num_plot, num_plot)
-    for i in range(num_plot):
-        for j in range(num_plot):
-            idx = np.random.randint(0, X.shape[0])
-            ax[i, j].imshow(X[idx])
+    num_imgs = X.shape[0]
+    len_y = int(np.floor(np.sqrt(num_imgs)))
+    len_x = int(np.ceil(num_imgs / len_y))
+
+    fig, ax = plt.subplots(len_y, len_x)
+    for i in range(len_y):
+        for j in range(len_x):
+            idx = i * len_x + j
+            if idx < num_imgs:
+                ax[i, j].imshow(X[idx][0].detach().cpu().numpy())
             ax[i, j].get_xaxis().set_visible(False)
             ax[i, j].get_yaxis().set_visible(False)
     fig.subplots_adjust(hspace=0.1)  # No horizontal space between subplots
     fig.subplots_adjust(wspace=0)
     fig.show()
 
+def plot_image_tensor_2D(X):
+    plt.figure()
+    len_y, len_x = X.shape[:2]
+    fig, ax = plt.subplots(len_y, len_x)
+    for i in range(len_y):
+        for j in range(len_x):
+            ax[i, j].imshow(X[i, j][0].detach().cpu().numpy())
+            ax[i, j].get_xaxis().set_visible(False)
+            ax[i, j].get_yaxis().set_visible(False)
+    fig.subplots_adjust(hspace=0.1)  # No horizontal space between subplots
+    fig.subplots_adjust(wspace=0)
+    fig.show()
 
 # with open('scae/save.pkl', 'rb') as input:
 #     capsules_l = pickle.load(input)

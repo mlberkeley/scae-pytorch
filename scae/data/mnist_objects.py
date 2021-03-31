@@ -6,12 +6,15 @@ import pathlib as pth
 from torchvision.datasets import CIFAR10, MNIST, QMNIST, USPS
 from torchvision import transforms
 import torch
+import torch.nn as nn
+from torch.distributions import Bernoulli
 from easydict import EasyDict
 
 from scae.models.pcae import PCAE
 from scae.modules.part_capsule_ae import TemplateImageDecoder
 from scae.args import parse_args
 import scae.util.math as math_utils
+from scae.util.vis import plot_image_tensor_2D, plot_image_tensor
 
 class MNISTObjects(torch.utils.data.Dataset):
     NUM_SAMPLES = 10000
@@ -44,28 +47,63 @@ class MNISTObjects(torch.utils.data.Dataset):
                 from pytorch_lightning.utilities.cloud_io import load as pl_load
                 best_model = wandb.restore('last.ckpt', run_path=template_src, replace=True)
                 pcae_decoder.templates = torch.nn.Parameter(pl_load(best_model.name)['state_dict']['decoder.templates'].contiguous())
+            templates = pcae_decoder._template_nonlin(pcae_decoder.templates)
 
+            valid_part_poses = []
+            valid_presences = []
+            while len(valid_part_poses) < MNISTObjects.NUM_CLASSES:
+                presences_shape = (MNISTObjects.NUM_CLASSES, self.num_caps)
+                presences = Bernoulli(.99).sample(presences_shape).float().cuda()
+                # presences = torch.sigmoid((torch.rand(presences_shape).cuda() - .5) * 1)
+
+                part_poses = self.rand_poses((MNISTObjects.NUM_CLASSES, self.num_caps),
+                                             size_ratio=args.pcae.decoder.template_size[0] / args.pcae.decoder.output_size[0] / 2)
+                part_poses = math_utils.geometric_transform(part_poses, similarity=True, inverse=True, as_matrix=True)
+
+                temp_poses = part_poses[..., :2, :]
+                temp_poses = temp_poses.reshape(*temp_poses.shape[:-2], 6)
+
+                # temp_rec = pcae_decoder(temp_poses, presences)
+                # temp_rec_img = temp_rec.pdf.mean()
+                transformed_templates = self.transform_templates(templates, temp_poses)
+                metric = self.overlap_metric(transformed_templates, presences)
+                metric = metric * (presences.bool().unsqueeze(-1) | presences.bool().unsqueeze(-2)).float()
+
+                # from scae.util.vis import plot_image_tensor_2D, plot_image_tensor
+                # plot_image_tensor_2D(transformed_templates)
+                # # plot_image_tensor(transformed_templates.max(dim=1)[0])
+                # plot_image_tensor((transformed_templates.T * presences.T).T.max(dim=1)[0])
+                # # plot_image_tensor(temp_rec_img)
+
+                for i in range(MNISTObjects.NUM_CLASSES):
+                    if ((metric[i] == 0) | ((10 < metric[i]) & (metric[i] < 20))).all()\
+                            and (metric[i] > 0).any():
+                        valid_part_poses.append(part_poses[i])
+                        valid_presences.append(presences[i])
+
+            part_poses = torch.stack(valid_part_poses[:MNISTObjects.NUM_CLASSES])
+            presences = torch.stack(valid_presences[:MNISTObjects.NUM_CLASSES])
+
+            # Vis final objects
+            temp_poses = part_poses[..., :2, :]
+            temp_poses = temp_poses.reshape(*temp_poses.shape[:-2], 6)
+            transformed_templates = self.transform_templates(templates, temp_poses)
+            plot_image_tensor((transformed_templates.T * presences.T).T.max(dim=1)[0])
 
             # Tensor of shape (batch_size, self._n_caps, 6)
-            sample_poses = self.rand_poses((MNISTObjects.NUM_SAMPLES, 1),
-                                           size_ratio=6)
-            sample_poses = math_utils.geometric_transform(sample_poses, similarity=True, inverse=True, as_matrix=True)
-
-            caps_poses = self.rand_poses((MNISTObjects.NUM_CLASSES, self.num_caps),
-                                         size_ratio=args.pcae.decoder.template_size[0] / args.pcae.decoder.output_size[0] / 2)
-            caps_poses = math_utils.geometric_transform(caps_poses, similarity=True, inverse=True, as_matrix=True)
+            object_poses = self.rand_poses((MNISTObjects.NUM_SAMPLES, 1), size_ratio=6)
+            object_poses = math_utils.geometric_transform(object_poses, similarity=True, inverse=True, as_matrix=True)
 
             jitter_poses = self.rand_jitter_poses((MNISTObjects.NUM_SAMPLES, self.num_caps))
             jitter_poses = math_utils.geometric_transform(jitter_poses, similarity=True, inverse=True, as_matrix=True)
 
             poses = jitter_poses\
-                    @ caps_poses.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1, 1, 1))\
-                    @ sample_poses.expand((MNISTObjects.NUM_SAMPLES, self.num_caps, -1, -1))
+                    @ part_poses.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1, 1, 1))\
+                    @ object_poses.expand((MNISTObjects.NUM_SAMPLES, self.num_caps, -1, -1))
             poses = poses[..., :2, :]
             poses = poses.reshape(*poses.shape[:-2], 6)
 
-            presences_shape = (MNISTObjects.NUM_SAMPLES, self.num_caps)
-            presences = torch.sigmoid((torch.rand(presences_shape).cuda() - .5) * 1)
+            presences = presences.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
 
             rec = pcae_decoder(poses, presences)
             rec_img = rec.pdf.mean()
@@ -73,9 +111,21 @@ class MNISTObjects(torch.utils.data.Dataset):
                 images=rec_img,
                 templates=pcae_decoder.templates,
                 jitter_poses=jitter_poses,
-                caps_poses=caps_poses,
-                sample_poses=sample_poses
+                caps_poses=part_poses,
+                sample_poses=object_poses
             )
+
+    def overlap_metric(self, transformed_templates, presences):
+        # Tensor of size (N_CLASSES, N_CAPS, C, H, W), transposes are for elem-wise mult broadcasting
+        t = (transformed_templates.T * presences.T).T
+        # Tensor of size (N_CLASSES, N_CAPS, C*H*W)
+        t = t.view(*t.shape[:-3], -1)
+        # Tensor of size (N_CLASSES, N_CAPS, N_CAPS, C*H*W)
+        metric_t = t.unsqueeze(1) * t.unsqueeze(2)
+        # Tensor of size (N_CLASSES, N_CAPS, N_CAPS)
+        metric_t = metric_t.sum(dim=-1)
+        # Tensor of size (N_CLASSES, N_CAPS, N_CAPS) w/ diag zeroed
+        return metric_t * (torch.ones_like(metric_t) - torch.eye(self.num_caps).cuda())
 
     def rand_poses(self, shape, size_ratio):
         trans_xs = (torch.rand(shape).cuda() - .5) * 1
@@ -114,12 +164,29 @@ class MNISTObjects(torch.utils.data.Dataset):
             idx = MNISTObjects.NUM_SAMPLES * 4 // 5 + item
         image = self.data.images[idx]
 
+        image = self.norm_img(image)
+
+        return image, torch.zeros(1, dtype=torch.long)
+
+    @staticmethod
+    def norm_img(image):
         image = torch.abs(image - image.quantile(.5))
         i_max = torch.max(image)
         i_min = torch.min(image)
         image = torch.div(image - i_min, i_max - i_min + 1e-8)
+        return image
 
-        return image, torch.zeros(1, dtype=torch.long)
+    def transform_templates(self, templates, poses, output_shape=(40, 40)):
+        template_batch_shape = (MNISTObjects.NUM_CLASSES, self.num_caps, templates.shape[-3], *output_shape)
+        flattened_template_batch_shape = (template_batch_shape[0]*template_batch_shape[1], *template_batch_shape[2:])
+
+        # poses shape (MNISTObjects.NUM_CLASSES * self._n_caps, 2, 3)
+        poses = poses.view(-1, 2, 3)
+        # TODO: port to using https://kornia.readthedocs.io/en/latest/geometry.transform.html#kornia.geometry.transform.warp_affine
+        grid_coords = nn.functional.affine_grid(theta=poses, size=flattened_template_batch_shape)
+        template_stack = templates.repeat(MNISTObjects.NUM_CLASSES, 1, 1, 1)
+        transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
+        return transformed_templates
 
     def __len__(self):
         if self.train:
