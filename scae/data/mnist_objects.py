@@ -34,6 +34,7 @@ class MNISTObjects(torch.utils.data.Dataset):
         #         self._generate(template_src)
         #         pickle.dump(self.data, f)
         self._generate(template_src)
+        # self.plot(100)
 
     def _generate(self, template_src):
         with torch.no_grad():
@@ -94,12 +95,12 @@ class MNISTObjects(torch.utils.data.Dataset):
             poses = poses[..., :2, :]
             poses = poses.reshape(*poses.shape[:-2], 6)
 
+            transformed_templates = self.transform_templates(templates, poses)
+            # templates = templates.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
             presences = presences.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
-
-            rec = pcae_decoder(poses, presences)
-            rec_img = rec.pdf.mean()
+            images = (transformed_templates.T * presences.T).T.max(dim=1)[0]
             self.data = EasyDict(
-                images=rec_img,
+                images=images,
                 templates=pcae_decoder.templates,
                 jitter_poses=jitter_poses,
                 caps_poses=part_poses,
@@ -139,9 +140,8 @@ class MNISTObjects(torch.utils.data.Dataset):
         return poses
 
     def plot(self, n=10):
-        for i in range(n):
-            plt.imshow(self[i, 0][0].detach().cpu())
-            plt.show()
+        images = torch.stack([self[i][0] for i in range(n)])
+        plot_image_tensor(images)
 
     def __getitem__(self, item):
         """
@@ -168,14 +168,15 @@ class MNISTObjects(torch.utils.data.Dataset):
         return image
 
     def transform_templates(self, templates, poses, output_shape=(40, 40)):
-        template_batch_shape = (MNISTObjects.NUM_CLASSES, self.num_caps, templates.shape[-3], *output_shape)
+        batch_size = poses.shape[0]
+        template_batch_shape = (batch_size, self.num_caps, templates.shape[-3], *output_shape)
         flattened_template_batch_shape = (template_batch_shape[0]*template_batch_shape[1], *template_batch_shape[2:])
 
         # poses shape (MNISTObjects.NUM_CLASSES * self._n_caps, 2, 3)
         poses = poses.view(-1, 2, 3)
         # TODO: port to using https://kornia.readthedocs.io/en/latest/geometry.transform.html#kornia.geometry.transform.warp_affine
         grid_coords = nn.functional.affine_grid(theta=poses, size=flattened_template_batch_shape)
-        template_stack = templates.repeat(MNISTObjects.NUM_CLASSES, 1, 1, 1)
+        template_stack = templates.repeat(batch_size, 1, 1, 1)
         transformed_templates = nn.functional.grid_sample(template_stack, grid_coords).view(template_batch_shape)
         return transformed_templates
 
