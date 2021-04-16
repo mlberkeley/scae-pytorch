@@ -46,7 +46,7 @@ def main():
         if 'objects' in args.dataset:
             from data.mnist_objects import MNISTObjects
 
-            dataset = MNISTObjects(data_path, train=True,  )
+            dataset = MNISTObjects(data_path, train=True)
             train_dataloader = DataLoader(dataset, **dataloader_args)
             val_dataloader = DataLoader(MNISTObjects(data_path, train=False),
                                         **dataloader_args)

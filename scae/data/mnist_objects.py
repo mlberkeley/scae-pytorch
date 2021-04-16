@@ -22,7 +22,7 @@ class MNISTObjects(torch.utils.data.Dataset):
 
     def __init__(self, root='data', train=True,
                  template_src='mlatberkeley/StackedCapsuleAutoEncoders/67lzaiyq',
-                 num_caps=4, new=True, aligned=False):
+                 num_caps=4, new=True, aligned=True, template_mixing='pdf'):
         self.train = train
         self.num_caps = num_caps
         self.file = pth.Path(root) / 'mnist_objects.pkl'
@@ -35,6 +35,7 @@ class MNISTObjects(torch.utils.data.Dataset):
         #         pickle.dump(self.data, f)
 
         self.aligned = aligned
+        self.template_mixing = template_mixing
         self._generate(template_src)
         # self.plot(100)
 
@@ -97,10 +98,18 @@ class MNISTObjects(torch.utils.data.Dataset):
             poses = poses[..., :2, :]
             poses = poses.reshape(*poses.shape[:-2], 6)
 
-            transformed_templates = self.transform_templates(templates, poses)
-            # templates = templates.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
             presences = presences.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
-            images = (transformed_templates.T * presences.T).T.max(dim=1)[0]
+
+            if self.template_mixing == 'pdf':
+                rec = pcae_decoder(poses, presences)
+                images = rec.pdf.mean()
+            elif self.template_mixing == 'max':
+                transformed_templates = self.transform_templates(templates, poses)
+                # templates = templates.repeat((MNISTObjects.NUM_SAMPLES // MNISTObjects.NUM_CLASSES, 1))
+                images = (transformed_templates.T * presences.T).T.max(dim=1)[0]
+            else:
+                raise ValueError(f'Invalid template_mixing value {self.template_mixing}')
+
             self.data = EasyDict(
                 images=images,
                 templates=pcae_decoder.templates,
