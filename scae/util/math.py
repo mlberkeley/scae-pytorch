@@ -3,6 +3,7 @@
 import numpy as np
 import torch.distributions as D
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 import math
 
@@ -21,8 +22,7 @@ def scalar_log(scalar):
 
 def safe_log(tensor, eps=1e-16):
     is_zero = tensor.le(eps)
-    tensor = torch.where(is_zero, torch.ones_like(
-        tensor).to(tensor.device), tensor)
+    tensor = torch.where(is_zero, torch.ones_like(tensor).to(tensor.device), tensor)
     tensor = torch.where(is_zero, torch.zeros_like(tensor).to(tensor.device) - 1e8,
                          torch.log(tensor))
     return tensor
@@ -45,7 +45,8 @@ def add_noise(tensor, noise_type="uniform", scale=1):
     return tensor + noise
 
 
-def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=False, inverse=True):
+def geometric_transform(pose_tensors, similarity=False, nonlinear=True,
+                        as_matrix=False, inverse=True):
     """
     Converts parameter tensor into an affine or similarity transform.
     :param pose_tensor: [..., 6] tensor.
@@ -54,16 +55,13 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     :param as_matrix: bool; convers the transform to a matrix if True.
     :return: [..., 3, 3] tensor if `as_matrix` else [..., 6] tensor.
     """
-    trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(
-        1, dim=-1)
+    trans_xs, trans_ys, scale_xs, scale_ys, thetas, shears = pose_tensors.split(1, dim=-1)
 
     if nonlinear:
-        k = 1/2
+        k = 0.5
+        # TODO: use analytically computed trans rescaling or move it out of this method
         trans_xs = torch.tanh(trans_xs * k)
         trans_ys = torch.tanh(trans_ys * k)
-
-        # trans_xs = torch.tanh(trans_xs * 5.)
-        # trans_ys = torch.tanh(trans_ys * 5.)
         scale_xs = torch.sigmoid(scale_xs) + 1e-2
         scale_ys = torch.sigmoid(scale_ys) + 1e-2
         shears = torch.tanh(shears * 5.)
@@ -90,17 +88,16 @@ def geometric_transform(pose_tensors, similarity=False, nonlinear=True, as_3x3=F
     poses = torch.cat(poses, -1)  # shape (... , 6)
 
     # Convert poses to 3x3 A matrix so: [y, 1] = A [x, 1]
-    if as_3x3 or inverse:
+    if as_matrix or inverse:
         poses = poses.reshape(*poses.shape[:-1], 2, 3)
-        bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3)
+        bottom_pad = torch.zeros(*poses.shape[:-2], 1, 3).cuda()
         bottom_pad[..., 2] = 1
-        # bottom_pad = bottom_pad.cuda()
         # shape (... , 2, 3) + shape (... , 1, 3) = shape (... , 3, 3)
         poses = torch.cat([poses, bottom_pad], dim=-2)
 
     if inverse:
         poses = torch.inverse(poses)
-        if not as_3x3:
+        if not as_matrix:
             poses = poses[..., :2, :]
             poses = poses.reshape(*poses.shape[:-2], 6)
 
@@ -152,3 +149,18 @@ class MixtureDistribution(torch.distributions.Distribution):
             return (self._means[idx] * self.mixing_prob[idx]).sum(dim=0)
         else:
             return (self._means * self.mixing_prob).sum(dim=1)
+
+
+# l2(aggregated_prob - constant)
+def presence_l2_sparsity(presence_prob, num_classes):
+    batch_size, num_caps = presence_prob.shape
+
+    within_example_constant = torch.tensor([float(num_caps) / num_classes]).cuda()
+    between_example_constant = torch.tensor([float(batch_size) / num_classes]).cuda()
+
+    # Reduce over capsules
+    within_example = F.mse_loss(torch.sum(presence_prob, dim=1), within_example_constant) # / batch_size * 2.
+
+    # Reduce over batch
+    between_example = F.mse_loss(torch.sum(presence_prob, dim=0), between_example_constant) # / num_caps * 2.
+    return within_example, between_example

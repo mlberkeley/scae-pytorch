@@ -16,6 +16,7 @@ import pytorch_lightning.callbacks as cb
 
 from scae.args import parse_args
 from scae.data.constellation import create_constellation
+from scae.util.filtering import sobel_filter
 
 data_path = Path('data')
 
@@ -40,23 +41,31 @@ def main():
 
     dataloader_args = EasyDict(batch_size=args.batch_size, shuffle=False,
                                num_workers=0 if args.debug else args.data_workers)
-    if args.dataset == 'mnist':
+    if 'mnist' in args.dataset:
         args.num_classes = 10
         args.im_channels = 1
         args.image_size = (40, 40)
 
-        from torchvision.datasets import MNIST
+        if 'objects' in args.dataset:
+            from data.mnist_objects import MNISTObjects
 
-        t = transforms.Compose([
-            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
-            transforms.ToTensor(),
-            # norm_1c
-        ])
-        train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
-                                      **dataloader_args)
-        val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
-                                    **dataloader_args)
-    elif args.dataset == 'usps':
+            dataset = MNISTObjects(data_path, train=True)
+            train_dataloader = DataLoader(dataset, **dataloader_args)
+            val_dataloader = DataLoader(MNISTObjects(data_path, train=False),
+                                        **dataloader_args)
+        else:
+            from torchvision.datasets import MNIST
+
+            t = transforms.Compose([
+                transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
+                transforms.ToTensor(),
+                # norm_1c
+            ])
+            train_dataloader = DataLoader(MNIST(data_path/'mnist', train=True, transform=t, download=True),
+                                          **dataloader_args)
+            val_dataloader = DataLoader(MNIST(data_path/'mnist', train=False, transform=t, download=True),
+                                        **dataloader_args)
+    elif 'usps' in args.dataset:
         args.num_classes = 10
         args.im_channels = 1
         args.image_size = (40, 40)
@@ -64,7 +73,7 @@ def main():
         from torchvision.datasets import USPS
 
         t = transforms.Compose([
-            transforms.RandomCrop(size=(40, 40), pad_if_needed=True),
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor(),
             # norm_1c
         ])
@@ -73,7 +82,6 @@ def main():
         val_dataloader = DataLoader(USPS(data_path/'usps', train=False, transform=t, download=True),
                                     **dataloader_args)
     elif args.dataset == 'constellation':
-
         data_gen = create_constellation(
             batch_size=args.batch_size,
             shuffle_corners=True,
@@ -86,11 +94,10 @@ def main():
             use_scale_schedule=False,
             schedule_steps=0,
         )
-
         train_dataloader = DataLoader(data_gen, **dataloader_args)
         val_dataloader = DataLoader(data_gen, **dataloader_args)
 
-    elif args.dataset == 'cifar10':
+    elif 'cifar10' in args.dataset:
         args.num_classes = 10
         args.im_channels = 3
         args.image_size = (32, 32)
@@ -98,21 +105,26 @@ def main():
         from torchvision.datasets import CIFAR10
 
         t = transforms.Compose([
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
             transforms.ToTensor()
         ])
         train_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=True, transform=t, download=True),
                                       **dataloader_args)
         val_dataloader = DataLoader(CIFAR10(data_path/'cifar10', train=False, transform=t, download=True),
                                     **dataloader_args)
-    elif args.dataset == 'svhn':
+    elif 'svhn' in args.dataset:
         args.num_classes = 10
-        args.im_channels = 3
+        args.im_channels = 1
         args.image_size = (32, 32)
 
         from torchvision.datasets import SVHN
 
         t = transforms.Compose([
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Lambda(sobel_filter),
+            transforms.ToPILImage(),
+            transforms.RandomCrop(size=args.pcae.decoder.output_size, pad_if_needed=True),
+            transforms.ToTensor(),
         ])
         train_dataloader = DataLoader(SVHN(data_path/'svhn', split='train', transform=t, download=True),
                                       **dataloader_args)
@@ -121,11 +133,14 @@ def main():
     else:
         raise NotImplementedError()
 
+    if '{' in args.log.run_name:
+        args.log.run_name = args.log.run_name.format(**args)
     logger = WandbLogger(
         project=args.log.project,
         name=args.log.run_name,
         entity=args.log.team,
-        config=args, offline=not args.log.upload)
+        config=args, offline=not args.log.upload
+    )
 
     if args.model == 'ccae':
         from scae.modules.attention import SetTransformer
@@ -161,6 +176,11 @@ def main():
         #  TODO: after ccae
     else:
         raise NotImplementedError()
+
+    #
+    if 'mnist' in args.dataset and 'objects' in args.dataset:
+        wandb.log({"dataset_templates": [wandb.Image(i.detach().cpu().numpy(), caption="Label") for i in dataset.data.templates]})
+        wandb.log({"dataset_images": [wandb.Image(i.detach().cpu().numpy(), caption="Label") for i in dataset.data.images[:50]]})
 
     # Execute Experiment
     lr_logger = cb.LearningRateMonitor(logging_interval='step')

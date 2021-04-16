@@ -8,6 +8,8 @@ import torch.nn.functional as F
 
 import pytorch_lightning as pl
 
+from scae.util.math import presence_l2_sparsity
+
 
 def to_wandb_im(x, **kwargs):  # TODO: move to utils
     x = x.detach()
@@ -63,16 +65,23 @@ class PCAE(pl.LightningModule):
         rec_ll = rec.pdf.log_prob(img).view(batch_size, -1).sum(dim=-1).mean()
         temp_l1 = F.relu(self.decoder.templates).mean()
         rec_mse = self.mse(rec_img, img)
+        pres_l2_sparsity_over_capsules, pres_l2_sparsity_over_batch =\
+            presence_l2_sparsity(capsules.presences, num_classes=self.n_classes)
 
         losses = EasyDict(
             rec_ll=rec_ll.detach(),
             temp_l1=temp_l1.detach(),
-            rec_mse=rec_mse.detach()
+            rec_mse=rec_mse.detach(),
+            pres_l2_sparsity_over_capsules=pres_l2_sparsity_over_capsules.detach(),
+            pres_l2_sparsity_over_batch=pres_l2_sparsity_over_batch.detach()
         )
+
         losses_scaled = EasyDict(
             rec_ll=-rec_ll * self.args.pcae.loss_ll_coeff,
             temp_l1=temp_l1 * self.args.pcae.loss_temp_l1_coeff,
-            rec_mse=rec_mse * self.args.pcae.loss_mse_coeff
+            rec_mse=rec_mse * self.args.pcae.loss_mse_coeff,
+            pres_l2_sparsity_over_capsules=pres_l2_sparsity_over_capsules * self.args.pcae.loss_pres_l2_sparsity.capsules,
+            pres_l2_sparsity_over_batch=pres_l2_sparsity_over_batch * self.args.pcae.loss_pres_l2_sparsity.batch
         )
         loss = sum([l for l in losses_scaled.values()])
 

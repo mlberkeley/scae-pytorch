@@ -3,7 +3,7 @@ batch_size: 500
 num_epochs: 120
 
 model: pcae
-dataset: mnist
+dataset: mnist_objects
 
 pcae:
   num_caps: 16

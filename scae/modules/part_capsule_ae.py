@@ -145,7 +145,7 @@ class TemplateImageDecoder(nn.Module):
         else:
             self.temperature_logit = torch.nn.Parameter(torch.tensor([0.]), requires_grad=True)
 
-        self.templates = torch.nn.Parameter(ts * 2, requires_grad=True)
+        self.templates = torch.nn.Parameter(ts, requires_grad=True)
 
     def forward(self, poses, presences=None):
         """
@@ -161,6 +161,7 @@ class TemplateImageDecoder(nn.Module):
 
         # poses shape (batch_size * self._n_caps, 2, 3)
         poses = poses.view(-1, 2, 3)
+        # TODO: port to using https://kornia.readthedocs.io/en/latest/geometry.transform.html#kornia.geometry.transform.warp_affine
         grid_coords = nn.functional.affine_grid(theta=poses, size=(poses.shape[0], n_dims, *self._output_size))
 
         # templates             shape             (self._n_caps, n_dims, self._template_size)
